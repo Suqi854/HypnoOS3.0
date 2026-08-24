@@ -7,6 +7,7 @@ const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
+const removedFeaturePattern = new RegExp(`gal${'game'}|\u4eba\u7269\u6f14\u51fa|\u56fd\u738b\u6e38\u620f`, 'i');
 
 expect(manifest.minimum_client_version === '1.18.0', 'minimum_client_version 必须锁定 1.18.0');
 expect(/^\d+\.\d+\.\d+$/.test(manifest.version), 'manifest 版本不是 SemVer');
@@ -16,11 +17,16 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '303ff97170e8117e8b111070907ac67c720e5f508998db4f0560cc9b58126fd4', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '918a769b3ed9ded1f72c190086ff8718208d80454eb163db023fe25bc97bb395', `UI 基线哈希变化：${uiHash}`);
+const uiText = ui.toString('utf8');
+expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
+expect(!removedFeaturePattern.test(uiText), '手机前端不得残留已移除功能的运行代码');
 const floatingHost = await readFile(new URL('public/floating-bootstrap.js', root), 'utf8');
 for (const marker of ['data-phone-drag', 'pet-character-toggle', 'sidecar', 'launcher']) {
   expect(floatingHost.includes(marker), `4.3 悬浮宿主缺少关键能力：${marker}`);
 }
+expect(floatingHost.includes("scrolling='no'"), '手机 iframe 必须关闭文档滚动条');
+expect(!removedFeaturePattern.test(floatingHost), '悬浮宿主不得残留已移除功能的按钮、同步或渲染代码');
 const extensionSource = await readFile(new URL('src/extension.js', root), 'utf8');
 expect(!extensionSource.includes('hypnoos3-launcher'), '不得重新引入自制 H 启动器');
 

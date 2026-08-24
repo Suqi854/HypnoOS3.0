@@ -48,7 +48,7 @@ export class FloatingHost {
     script.dataset.assetBase = new URL('../public/assets/', import.meta.url).href;
     script.dataset.vendorBase = new URL('../public/vendor/', import.meta.url).href;
     script.dataset.bridgeKey = BRIDGE_KEY;
-    script.dataset.revision = 'hypnoos3-0.6.0';
+    script.dataset.revision = 'hypnoos3-0.6.1';
     script.dataset.mode = 'host';
     script.async = false;
     document.head.append(script);

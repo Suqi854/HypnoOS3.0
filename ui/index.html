@@ -1,4 +1,5 @@
 <head><meta charset="utf-8"><style id="st-hypnoos-boot-style">
+html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}
 html.st-hypnoos-booting .st-hypnoos-phone-preboot{opacity:0!important;pointer-events:none!important}
 html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{content:"前端加载失败，请刷新或检查控制台错误";position:absolute;left:50%;top:50%;z-index:2;transform:translate(-50%,-50%);max-width:min(320px,calc(100vw - 40px));border:1px solid rgba(244,114,182,.35);border-radius:16px;background:rgba(15,23,42,.96);box-shadow:0 20px 50px rgba(0,0,0,.45);padding:14px 16px;color:#f8fafc;font:600 13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center}
 	</style><style>/*!*********************************************************************************************************************************************************************************************************************************************************************************!*\
@@ -7276,15 +7277,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   const TEMPORAL_MARKER_RE = /⟪(时空轮转|时空收束)[|]([^|⟫]+)[|]([^|⟫]+)(?:[|]([^|⟫]+))?(?:[|]([^|⟫]+))?⟫/g;
-  const GALGAME_MARKER_RE = /⟪人物演出总块⟫([\s\S]*?)⟪\/人物演出总块⟫/;
-  const GALGAME_SEGMENT_RE = /〔(动作|台词|思考)〕([\s\S]*?)(?=〔(?:动作|台词|思考)〕|$)/g;
   const TEMPORAL_NARRATIVE_STYLE_ID = "st-temporal-narrative-host-style";
-  const GALGAME_NARRATIVE_STYLE_ID = "st-galgame-narrative-host-style-v3";
-  const GALGAME_NARRATIVE_STALE_STYLE_IDS = [
-    "st-galgame-narrative-host-style-v1",
-    "st-galgame-narrative-host-style-v2",
-    "st-galgame-narrative-bootstrap-style-v1"
-  ];
   const TEMPORAL_NARRATIVE_RUNTIME_KEY = "__ST_HYPNOOS_TEMPORAL_NARRATIVE_RUNTIME__";
   const ACTION_FOLD_MARKER = 'data-king-game-action-fold="v2"';
   const ACTION_FOLD_BODY_START = "<!--KGAF_BODY_START-->";
@@ -7306,72 +7299,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 .mes_text .st-temporal-card--closing{grid-template-columns:1fr;border-color:rgba(184,218,232,.4);border-radius:50% 50% 18px 18px/18px 18px 18px 18px;background:radial-gradient(circle at 50% 40%,rgba(81,168,203,.18),transparent 32%),linear-gradient(180deg,rgba(10,31,45,.98),rgba(5,13,24,.98))}.mes_text .st-temporal-card--closing::before{background:repeating-radial-gradient(circle at 50% 45%,transparent 0 34px,rgba(182,219,232,.08) 35px 36px)}.mes_text .st-temporal-card--closing::after{background:linear-gradient(90deg,transparent,rgba(145,205,229,.1),transparent),repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.018) 3px 4px)}.mes_text .st-temporal-card--closing .st-temporal-card__film{color:#bde8f7;letter-spacing:.2em}.mes_text .st-temporal-card--closing .st-temporal-card__clock{justify-self:center;width:min(210px,72%);border:2px solid rgba(185,218,232,.45);border-radius:50%;padding:24px 12px;text-align:center;box-shadow:0 0 0 8px rgba(112,179,207,.08),inset 0 0 24px rgba(112,179,207,.12)}.mes_text .st-temporal-card--closing .st-temporal-card__date{color:#91b9ca}.mes_text .st-temporal-card--closing .st-temporal-card__time{color:#eefaff;text-shadow:0 0 13px rgba(127,211,238,.45)}.mes_text .st-temporal-card--closing .st-temporal-card__notes{padding-left:0}.mes_text .st-temporal-card--closing .st-temporal-card__note{border-color:rgba(185,218,232,.22);background:linear-gradient(90deg,transparent,rgba(112,179,207,.12),transparent);text-align:center}.mes_text .st-temporal-card--closing .st-temporal-card__note::before{color:#9fd7eb}
 @keyframes st-temporal-clock{0%,100%{filter:brightness(1)}50%{filter:brightness(1.28)}}@keyframes st-temporal-scan{from{transform:translateY(-18%)}to{transform:translateY(18%)}}@media(prefers-reduced-motion:reduce){.mes_text .st-temporal-card::after,.mes_text .st-temporal-card__time{animation:none}}@media(max-width:520px){.mes_text .st-temporal-card{grid-template-columns:84px minmax(0,1fr);margin-top:14px;padding:10px}.mes_text .st-temporal-card__film{top:7px;right:8px;font-size:8px}.mes_text .st-temporal-card__clock{padding:15px 8px 5px 0}.mes_text .st-temporal-card__time{font-size:18px}.mes_text .st-temporal-card__date{font-size:9px}.mes_text .st-temporal-card__notes{padding:17px 0 0 9px;gap:5px}.mes_text .st-temporal-card__note{overflow:visible;padding:5px 6px 5px 22px;font-size:10px;white-space:normal}}
 `;
-  const GALGAME_NARRATIVE_HOST_STYLE = `
-.mes_text .st-galgame-card{--gg-hue:206;--gg-accent:hsl(var(--gg-hue) 88% 72%);--gg-soft:hsl(var(--gg-hue) 78% 68% / .18);position:relative;display:block;width:100%;box-sizing:border-box;margin:16px 0 14px;overflow:hidden;border:1px solid hsl(var(--gg-hue) 72% 68% / .34);border-radius:16px;background:linear-gradient(136deg,hsl(var(--gg-hue) 43% 10% / .98),hsl(calc(var(--gg-hue) + 22) 38% 15% / .97) 58%,hsl(var(--gg-hue) 42% 8% / .99));box-shadow:0 15px 34px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.07);color:hsl(var(--gg-hue) 70% 94%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;transition:margin .18s ease,border-radius .18s ease,border-color .18s ease}
-.mes_text .st-galgame-card::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 12% 7%,hsl(var(--gg-hue) 92% 67% / .15),transparent 31%),linear-gradient(112deg,transparent 0 63%,hsl(calc(var(--gg-hue) + 46) 76% 65% / .10));opacity:.95}
-.mes_text .st-galgame-card.is-joined-prev{margin-top:-10px;border-top-left-radius:6px;border-top-right-radius:6px}.mes_text .st-galgame-card.is-joined-next{margin-bottom:4px;border-bottom-left-radius:6px;border-bottom-right-radius:6px}
-.mes_text .st-galgame-card>summary{position:relative;z-index:1;display:grid;grid-template-columns:66px minmax(0,1fr) auto;align-items:center;gap:12px;min-height:76px;padding:10px 13px;cursor:pointer;list-style:none;background:linear-gradient(90deg,hsl(var(--gg-hue) 75% 54% / .18),hsl(var(--gg-hue) 40% 20% / .03));user-select:none}
-.mes_text .st-galgame-card.is-side-right>summary{grid-template-columns:auto minmax(0,1fr) 66px;background:linear-gradient(270deg,hsl(var(--gg-hue) 75% 54% / .18),hsl(var(--gg-hue) 40% 20% / .03))}
-.mes_text .st-galgame-card>summary::-webkit-details-marker{display:none}.mes_text .st-galgame-card>summary::marker{display:none}
-.mes_text .st-galgame-card__portrait{position:relative;width:62px;height:62px;overflow:hidden;border:1px solid hsl(var(--gg-hue) 86% 78% / .52);border-radius:14px;background:linear-gradient(145deg,hsl(var(--gg-hue) 62% 31% / .68),rgba(15,23,42,.92));box-shadow:0 8px 18px rgba(0,0,0,.25),inset 0 0 0 2px rgba(255,255,255,.05);padding:0;color:inherit;font:inherit}.mes_text button.st-galgame-card__portrait{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.mes_text button.st-galgame-card__portrait:hover{transform:translateY(-2px);border-color:hsl(var(--gg-hue) 92% 84% / .78);box-shadow:0 11px 24px rgba(0,0,0,.3),0 0 0 3px hsl(var(--gg-hue) 82% 62% / .12)}.mes_text button.st-galgame-card__portrait:focus-visible{outline:2px solid var(--gg-accent);outline-offset:3px}
-.mes_text .st-galgame-card.is-side-right .st-galgame-card__portrait{grid-column:3}.mes_text .st-galgame-card.is-side-right .st-galgame-card__identity{grid-column:2;grid-row:1;text-align:right}.mes_text .st-galgame-card.is-side-right .st-galgame-card__toggle{grid-column:1;grid-row:1}
-.mes_text .st-galgame-card__portrait img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top;opacity:0;transition:opacity .18s ease}.mes_text .st-galgame-card__portrait.is-loaded img{opacity:1}
-.mes_text .st-galgame-card__portrait-fallback{display:grid;width:100%;height:100%;place-items:center;color:var(--gg-accent);font:900 22px/1 ui-serif,Georgia,"Noto Serif SC",serif;text-shadow:0 0 16px hsl(var(--gg-hue) 88% 64% / .55)}
-.mes_text .st-galgame-card__portrait.is-loaded .st-galgame-card__portrait-fallback{display:none}
-.mes_text .st-galgame-card__identity{display:grid;gap:5px;min-width:0}.mes_text .st-galgame-card__name-row{display:flex;align-items:center;gap:9px;min-width:0}.mes_text .st-galgame-card.is-side-right .st-galgame-card__name-row{justify-content:flex-end}.mes_text .st-galgame-card__name{display:inline-flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden;color:var(--gg-accent);font-size:18px;font-weight:950;letter-spacing:.045em;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 0 14px hsl(var(--gg-hue) 82% 54% / .36)}.mes_text .st-galgame-card__name-original,.mes_text .st-galgame-card__name-nickname{min-width:0;overflow:hidden;text-overflow:ellipsis}.mes_text .st-galgame-card__name-original{text-decoration-line:line-through;text-decoration-thickness:2px;text-decoration-color:hsl(var(--gg-hue) 84% 72% / .72);opacity:.52;font-size:.76em;font-weight:760}.mes_text .st-galgame-card__name-nickname{color:var(--gg-accent);font-family:"HanziPen SC","Kaiti SC","STKaiti","YuKyokasho","Noto Serif SC",cursive;font-size:1.06em;transform:rotate(-1deg)}.mes_text .st-galgame-card__name-nickname.is-private{color:#ffb4a2}.mes_text .st-galgame-card__name-nickname.is-recognized{color:#86efcf}
-.mes_text .st-galgame-card__expression{flex:0 0 auto;border:1px solid hsl(var(--gg-hue) 76% 71% / .28);border-radius:999px;background:hsl(var(--gg-hue) 67% 44% / .16);padding:4px 8px;color:hsl(var(--gg-hue) 88% 82%);font:850 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
-.mes_text .st-galgame-card__toggle{display:grid;place-items:center;width:26px;height:26px;border:1px solid hsl(var(--gg-hue) 80% 76% / .25);border-radius:50%;color:hsl(var(--gg-hue) 88% 79%);font-size:14px;transition:transform .2s ease}.mes_text .st-galgame-card[open] .st-galgame-card__toggle{transform:rotate(180deg)}
-.mes_text .st-galgame-card__body{position:relative;z-index:1;display:grid;gap:5px;padding:10px 16px 14px 91px;border-top:1px solid hsl(var(--gg-hue) 76% 67% / .17)}.mes_text .st-galgame-card.is-side-right .st-galgame-card__body{padding:10px 91px 14px 16px;text-align:right}
-.mes_text .st-galgame-card__segment{display:block;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}.mes_text .st-galgame-card__segment--action{position:relative;padding:3px 0;color:hsl(var(--gg-hue) 44% 83% / .72);font-family:ui-serif,Georgia,"Noto Serif SC",serif;font-size:12px;font-style:italic;line-height:1.58;letter-spacing:.025em}.mes_text .st-galgame-card__segment--action::before{content:"＊";margin-right:6px;color:hsl(var(--gg-hue) 80% 73% / .76)}.mes_text .st-galgame-card.is-side-right .st-galgame-card__segment--action::before{content:"";margin:0}.mes_text .st-galgame-card.is-side-right .st-galgame-card__segment--action::after{content:" ＊";color:hsl(var(--gg-hue) 80% 73% / .76)}
-.mes_text .st-galgame-card__segment--speech{position:relative;padding:5px 0;color:hsl(var(--gg-hue) 82% 92%);font-size:14px;font-weight:740;line-height:1.72}.mes_text .st-galgame-card__segment--speech::before{content:"“";margin-right:3px;color:var(--gg-accent);font:900 20px/1 Georgia,serif}.mes_text .st-galgame-card__segment--speech::after{content:"”";margin-left:3px;color:var(--gg-accent);font:900 18px/1 Georgia,serif}
-.mes_text .st-galgame-card__segment--thought{padding:5px 0;color:hsl(var(--gg-hue) 46% 88% / .76);font-family:ui-serif,Georgia,"Noto Serif SC",serif;font-size:13px;font-style:italic;line-height:1.72}.mes_text .st-galgame-card__segment--thought::before{content:"（";color:hsl(var(--gg-hue) 68% 77% / .64)}.mes_text .st-galgame-card__segment--thought::after{content:"）";color:hsl(var(--gg-hue) 68% 77% / .64)}
-.mes_text .st-galgame-card__empty{color:hsl(var(--gg-hue) 38% 78% / .58);font-size:12px;font-style:italic}
-.mes_text .st-galgame-card.is-user{--gg-hue:42!important;width:92%;border-color:rgba(253,230,138,.48);background:linear-gradient(135deg,rgba(30,24,12,.98),rgba(47,37,17,.97) 55%,rgba(17,20,29,.99));box-shadow:0 13px 30px rgba(0,0,0,.3),inset 0 0 0 1px rgba(253,230,138,.11),inset 0 1px rgba(255,255,255,.08)}.mes_text .st-galgame-card.is-user.is-side-left{margin-right:auto}.mes_text .st-galgame-card.is-user.is-side-right{margin-left:auto}.mes_text .st-galgame-card.is-user::before{background:linear-gradient(125deg,rgba(251,191,36,.11),transparent 32% 72%,rgba(148,163,184,.08)),repeating-linear-gradient(135deg,transparent 0 13px,rgba(253,230,138,.035) 13px 14px)}
-.mes_text .st-galgame-card.is-user>summary{background:linear-gradient(90deg,rgba(202,138,4,.2),rgba(15,23,42,.04))}.mes_text .st-galgame-card.is-user.is-side-right>summary{background:linear-gradient(270deg,rgba(202,138,4,.2),rgba(15,23,42,.04))}.mes_text .st-galgame-card.is-user .st-galgame-card__portrait{display:grid;place-items:center;border-color:rgba(253,230,138,.55);border-radius:50%;background:radial-gradient(circle,rgba(250,204,21,.2),rgba(30,41,59,.92) 68%);box-shadow:0 0 0 3px rgba(253,230,138,.07),0 8px 18px rgba(0,0,0,.25)}.mes_text .st-galgame-card.is-user .st-galgame-card__portrait::before{content:"◇";position:absolute;color:#fde68a;font:900 30px/1 ui-serif,Georgia,serif;text-shadow:0 0 14px rgba(250,204,21,.58)}.mes_text .st-galgame-card.is-user .st-galgame-card__portrait img{display:none}.mes_text .st-galgame-card.is-user .st-galgame-card__portrait-fallback{position:relative;z-index:1;width:auto;height:auto;margin-top:38px;color:rgba(254,240,138,.88);font:900 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-shadow:none}
-.mes_text .st-galgame-card.is-user .st-galgame-card__name{color:#fde68a;text-shadow:0 0 14px rgba(250,204,21,.32)}.mes_text .st-galgame-card.is-user .st-galgame-card__name::before{content:"PLAYER // ";color:rgba(253,230,138,.52);font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}.mes_text .st-galgame-card.is-user .st-galgame-card__expression{border-color:rgba(253,230,138,.26);background:rgba(161,98,7,.17);color:#fef3c7}.mes_text .st-galgame-card.is-user .st-galgame-card__body{border-top-color:rgba(253,230,138,.16);background:linear-gradient(90deg,rgba(250,204,21,.035),transparent 70%)}.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech{color:#fff7d6}.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech::before,.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech::after{color:#facc15}
-.mes_text .st-galgame-card{--gg-red:#ed1831;--gg-black:#09090b;--gg-paper:#f4efe6;--gg-paper-2:#d8d2c8;--gg-muted:#c8c0b8;--gg-accent:var(--gg-red);border:3px solid var(--gg-black);border-radius:0;background:var(--gg-black);box-shadow:6px 6px 0 var(--gg-red),0 16px 34px rgba(0,0,0,.42);color:#fff;clip-path:polygon(1% 0,100% 2%,98% 100%,0 97%)}
-.mes_text .st-galgame-card::before{background:linear-gradient(118deg,transparent 0 72%,rgba(237,24,49,.18) 72% 77%,transparent 77%);opacity:1}
-.mes_text .st-galgame-card.is-side-right::before{background:linear-gradient(242deg,transparent 0 72%,rgba(237,24,49,.18) 72% 77%,transparent 77%)}
-.mes_text .st-galgame-card.is-joined-prev,.mes_text .st-galgame-card.is-joined-next{border-radius:0}
-.mes_text .st-galgame-card>summary{background:linear-gradient(112deg,var(--gg-paper) 0 72%,var(--gg-red) 72% 78%,var(--gg-black) 78%);color:var(--gg-black)}
-.mes_text .st-galgame-card.is-side-right>summary{background:linear-gradient(248deg,var(--gg-paper) 0 72%,var(--gg-red) 72% 78%,var(--gg-black) 78%)}
-.mes_text .st-galgame-card__portrait,.mes_text .st-galgame-card.is-user .st-galgame-card__portrait{border:3px solid var(--gg-black);border-radius:0;background:var(--gg-paper-2);box-shadow:4px 4px 0 var(--gg-red);color:var(--gg-black)}
-.mes_text button.st-galgame-card__portrait:hover{transform:translateY(-2px);border-color:var(--gg-black);box-shadow:5px 6px 0 var(--gg-red)}
-.mes_text button.st-galgame-card__portrait:focus-visible{outline:3px solid var(--gg-red);outline-offset:3px}
-.mes_text .st-galgame-card__portrait-fallback,.mes_text .st-galgame-card.is-user .st-galgame-card__portrait-fallback{color:var(--gg-black);text-shadow:none}
-.mes_text .st-galgame-card.is-user .st-galgame-card__portrait::before{color:var(--gg-red);text-shadow:none}
-.mes_text .st-galgame-card__name,.mes_text .st-galgame-card.is-user .st-galgame-card__name{color:var(--gg-black);text-shadow:none;font-family:Impact,"Arial Black","Noto Sans SC",sans-serif}
-.mes_text .st-galgame-card.is-user .st-galgame-card__name::before{color:#5d5752}
-.mes_text .st-galgame-card__name-original{color:#615b56;text-decoration-color:var(--gg-red);opacity:.78}.mes_text .st-galgame-card__name-nickname,.mes_text .st-galgame-card__name-nickname.is-private,.mes_text .st-galgame-card__name-nickname.is-recognized{color:var(--gg-red)}
-.mes_text .st-galgame-card__expression,.mes_text .st-galgame-card.is-user .st-galgame-card__expression{border:2px solid var(--gg-black);border-radius:0;background:var(--gg-black);color:#fff;box-shadow:2px 2px 0 var(--gg-red)}
-.mes_text .st-galgame-card__toggle{border:2px solid var(--gg-black);border-radius:0;background:#fff;color:var(--gg-black);box-shadow:2px 2px 0 var(--gg-red)}
-.mes_text .st-galgame-card__body,.mes_text .st-galgame-card.is-user .st-galgame-card__body{border-top:3px solid var(--gg-red);background:linear-gradient(112deg,#151418,#09090b);color:#fff}
-.mes_text .st-galgame-card__segment--action{color:var(--gg-muted)}.mes_text .st-galgame-card__segment--action::before,.mes_text .st-galgame-card.is-side-right .st-galgame-card__segment--action::after{color:var(--gg-red)}
-.mes_text .st-galgame-card__segment--speech,.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech{color:#fff}.mes_text .st-galgame-card__segment--speech::before,.mes_text .st-galgame-card__segment--speech::after,.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech::before,.mes_text .st-galgame-card.is-user .st-galgame-card__segment--speech::after{color:var(--gg-red)}
-.mes_text .st-galgame-card__segment--thought{color:#d8d2cc}.mes_text .st-galgame-card__empty{color:var(--gg-muted)}
-.mes_text .st-galgame-card.is-user{border-color:var(--gg-black);background:var(--gg-black);box-shadow:6px 6px 0 var(--gg-red),0 16px 34px rgba(0,0,0,.42)}
-.mes_text .st-galgame-card{--gg-role:#ed1831;--gg-role-dark:#790817}
-.mes_text .st-galgame-card[data-galgame-tone="0"]{--gg-role:#ed1831;--gg-role-dark:#790817}
-.mes_text .st-galgame-card[data-galgame-tone="1"]{--gg-role:#00a9e8;--gg-role-dark:#064c70}
-.mes_text .st-galgame-card[data-galgame-tone="2"]{--gg-role:#f5b700;--gg-role-dark:#7a4a00}
-.mes_text .st-galgame-card[data-galgame-tone="3"]{--gg-role:#18b875;--gg-role-dark:#075f3c}
-.mes_text .st-galgame-card[data-galgame-tone="4"]{--gg-role:#a968ff;--gg-role-dark:#4d217d}
-.mes_text .st-galgame-card[data-galgame-tone="5"]{--gg-role:#ff6b28;--gg-role-dark:#862a08}
-.mes_text .st-galgame-card[data-galgame-tone="6"]{--gg-role:#f5d547;--gg-role-dark:#725700}
-.mes_text .st-galgame-card__portrait,.mes_text .st-galgame-card.is-user .st-galgame-card__portrait{box-shadow:4px 4px 0 var(--gg-role)}
-.mes_text button.st-galgame-card__portrait:hover{box-shadow:5px 6px 0 var(--gg-role)}
-.mes_text .st-galgame-card__expression{box-shadow:2px 2px 0 var(--gg-role)}
-.mes_text .st-galgame-card__body,.mes_text .st-galgame-card.is-user .st-galgame-card__body{border-top-color:var(--gg-role);box-shadow:inset 6px 0 0 var(--gg-role-dark)}
-.mes_text .st-galgame-card.is-side-right .st-galgame-card__body{box-shadow:inset -6px 0 0 var(--gg-role-dark)}
-.mes_text .st-galgame-card__segment--action::before,.mes_text .st-galgame-card.is-side-right .st-galgame-card__segment--action::after,.mes_text .st-galgame-card__segment--speech::before,.mes_text .st-galgame-card__segment--speech::after{color:var(--gg-role)}
-.mes_text .st-galgame-card__index{position:absolute;z-index:3;right:50px;bottom:6px;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:32px;height:18px;padding:0 5px;border:2px solid var(--gg-black);background:var(--gg-role);color:#fff;font:1000 10px/1 Impact,"Arial Black",sans-serif;letter-spacing:.12em;box-shadow:2px 2px 0 var(--gg-black);transform:rotate(-3deg)}
-.mes_text .st-galgame-card__index::before{content:"ACT";font-size:7px;opacity:.78}
-.mes_text .st-galgame-card.is-side-right .st-galgame-card__index{right:auto;left:50px;transform:rotate(3deg)}
-@media(max-width:520px){.mes_text .st-galgame-card{margin:13px 0 11px;border-radius:0}.mes_text .st-galgame-card.is-joined-prev{margin-top:-8px}.mes_text .st-galgame-card>summary{grid-template-columns:54px minmax(0,1fr) auto;gap:9px;min-height:66px;padding:8px 9px}.mes_text .st-galgame-card.is-side-right>summary{grid-template-columns:auto minmax(0,1fr) 54px}.mes_text .st-galgame-card__portrait{width:50px;height:50px;border-radius:0}.mes_text .st-galgame-card__portrait-fallback{font-size:18px}.mes_text .st-galgame-card__name{font-size:15px}.mes_text .st-galgame-card__expression{max-width:88px;overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.mes_text .st-galgame-card__body{padding:9px 10px 11px 72px}.mes_text .st-galgame-card.is-side-right .st-galgame-card__body{padding:9px 72px 11px 10px}.mes_text .st-galgame-card__segment--speech{font-size:13px}.mes_text .st-galgame-card__segment--thought,.mes_text .st-galgame-card__segment--action{font-size:11.5px}}
-`;
   const temporalNarrativeObservedDocuments = new WeakSet();
   const temporalNarrativeScheduledDocuments = new WeakSet();
-  const galgameNarrativeScheduledDocuments = new WeakSet();
   const actionFoldScheduledDocuments = new WeakSet();
   const narrativeObservedFrames = new WeakSet();
 
@@ -7396,356 +7325,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     style.id = TEMPORAL_NARRATIVE_STYLE_ID;
     style.textContent = TEMPORAL_NARRATIVE_HOST_STYLE;
     targetDocument.head.appendChild(style);
-  }
-
-  async function hydrateGalgameCardPhoto(card, roleName) {
-    const name = String(roleName || "").trim();
-    if (!card || !name) return;
-    const token = String((Number(card.dataset.galgamePhotoToken) || 0) + 1);
-    card.dataset.galgamePhotoToken = token;
-    try {
-      await Promise.all(profilePhotoAllReadKeys(name).map((key) => profileHydratePhotoStorageKey(key)));
-    } catch {}
-    if (!card.isConnected || card.dataset.galgamePhotoToken !== token) return;
-    const roleData = getStatsRoles()?.[name];
-    const source = profilePhotoSource(name, roleData);
-    const portrait = card.querySelector(".st-galgame-card__portrait");
-    const image = portrait?.querySelector("img");
-    if (!portrait || !image || !source) return;
-    image.onload = () => {
-      if (card.isConnected && card.dataset.galgamePhotoToken === token) {
-        portrait.classList.add("is-loaded");
-      }
-    };
-    image.onerror = () => {
-      if (card.dataset.galgamePhotoToken === token) {
-        portrait.classList.remove("is-loaded");
-      }
-    };
-    image.src = source;
-    if (image.complete && image.naturalWidth > 0) image.onload();
-  }
-
-  function hydrateGalgameCardNickname(card, roleName) {
-    const name = String(roleName || "").trim();
-    const nameElement = card?.querySelector?.(".st-galgame-card__name");
-    if (!card || !name || !nameElement) return;
-    const roleData = getStatsRoles()?.[name];
-    const nickname = roleNickname(name, roleData);
-    nameElement.textContent = "";
-    if (!nickname) {
-      delete card.dataset.galgameNickname;
-      nameElement.textContent = name;
-      return;
-    }
-    card.dataset.galgameNickname = nickname;
-    const original = nameElement.ownerDocument.createElement("span");
-    original.className = "st-galgame-card__name-original";
-    original.textContent = name;
-    const alias = nameElement.ownerDocument.createElement("span");
-    alias.className = "st-galgame-card__name-nickname " + roleNicknameClass(roleData);
-    alias.textContent = nickname;
-    nameElement.append(original, alias);
-  }
-
-  function refreshGalgameCardsForRole(roleName) {
-    const name = String(roleName || "").trim();
-    if (!name) return;
-    const registry = galgameHostRegistry();
-    if (registry?.refreshGalgameRole) {
-      try {
-        registry.refreshGalgameRole(name);
-        return;
-      } catch {}
-    }
-    for (const targetDocument of temporalNarrativeDocuments()) {
-      targetDocument.querySelectorAll(".st-galgame-card[data-galgame-role]").forEach((card) => {
-        if (String(card.dataset.galgameRole || "") !== name) return;
-        hydrateGalgameCardNickname(card, name);
-        hydrateGalgameCardPhoto(card, name);
-      });
-    }
-  }
-
-  function galgameHostRegistry() {
-    for (const readWindow of [
-      () => window.parent,
-      () => window.top,
-      () => window
-    ]) {
-      try {
-        const candidate = readWindow()?.__ST_HYPNOOS_FLOATING_SINGLETON__;
-        if (candidate?.registerGalgameHydrator) return candidate;
-      } catch {}
-    }
-    return null;
-  }
-
-  function registerGalgameHydrationProvider() {
-    const registry = galgameHostRegistry();
-    if (!registry) return false;
-    return registry.registerGalgameHydrator({
-      hydrateCard(card, roleName) {
-        const name = String(roleName || "").trim();
-        if (!card || !name || card.dataset.galgameUser === "true") return;
-        hydrateGalgameCardNickname(card, name);
-        hydrateGalgameCardPhoto(card, name);
-      }
-    }, "phone-frontend-v1");
-  }
-
-  function parseGalgameNarrativeSegments(content) {
-    const source = String(content || "").trim();
-    const segments = [];
-    GALGAME_SEGMENT_RE.lastIndex = 0;
-    let match;
-    while ((match = GALGAME_SEGMENT_RE.exec(source))) {
-      const text = String(match[2] || "").trim();
-      if (text) segments.push({ kind: String(match[1] || "台词"), text });
-    }
-    if (!segments.length && source) segments.push({ kind: "动作", text: source });
-    return segments;
-  }
-
-  function parseGalgameNarrativeEntries(content) {
-    const source = String(content || "").replace(/\r\n?/g, "\n").trim();
-    if (!source) return [];
-    const entries = [];
-    const roleIndexes = new Map();
-    let current = null;
-    for (const line of source.split("\n")) {
-      const value = String(line || "").trim();
-      if (!value) continue;
-      const legacy = value.match(/^【角色】\s*([^【】]+?)\s*【表情】\s*([^【】]*?)\s*【交互】([\s\S]+)$/);
-      const direct = legacy ? null : value.match(/^【([^【】]+?)】\s*(.*?)\s*【交互】([\s\S]+)$/);
-      const match = legacy || direct;
-      if (!match) {
-        if (current && !/^【[^【】]+】/.test(value)) current[2] += "\n" + value;
-        continue;
-      }
-      const role = String(match[1] || "").trim();
-      const expression = String(match[2] || "").trim();
-      const interaction = String(match[3] || "").trim();
-      if (!role || !interaction) continue;
-      if (roleIndexes.has(role)) {
-        const previous = entries[roleIndexes.get(role)];
-        previous[2] += "\n" + interaction;
-        if (!previous[1] && expression) previous[1] = expression;
-        current = previous;
-        continue;
-      }
-      current = [role, expression, interaction];
-      roleIndexes.set(role, entries.length);
-      entries.push(current);
-    }
-    return entries.length ? entries : [["演出记录", "", source]];
-  }
-
-  function galgameCurrentUserName() {
-    for (const readContext of [
-      () => window.SillyTavern?.getContext?.(),
-      () => typeof getContext === "function" ? getContext() : null,
-      () => window.parent?.SillyTavern?.getContext?.(),
-      () => window.top?.SillyTavern?.getContext?.()
-    ]) {
-      try {
-        const context = readContext();
-        const name = String(context?.name1 ?? context?.userName ?? "").trim();
-        if (name) return name;
-      } catch {}
-    }
-    return "user";
-  }
-
-  function isGalgameUserRole(roleName) {
-    const role = String(roleName || "").trim();
-    const normalized = role.toLowerCase();
-    if (normalized === "user" || normalized === "{{user}}") return true;
-    const currentName = galgameCurrentUserName();
-    return Boolean(currentName && currentName !== "user" && role === currentName);
-  }
-
-  function galgameRoleTone(roleName) {
-    const source = String(roleName || "user").trim() || "user";
-    let hash = 2166136261;
-    for (let index = 0; index < source.length; index += 1) {
-      hash ^= source.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) % 6;
-  }
-
-  function createGalgameNarrativeCard(targetDocument, fields) {
-    const protocolRoleName = String(fields?.[0] || "").trim();
-    const isUser = isGalgameUserRole(protocolRoleName);
-    const roleName = isUser ? galgameCurrentUserName() : protocolRoleName;
-    const expression = String(fields?.[1] || "").trim();
-    const segments = parseGalgameNarrativeSegments(fields?.[2]);
-    const card = targetDocument.createElement("details");
-    card.className = "st-galgame-card";
-    if (isUser) card.classList.add("is-user");
-    card.open = true;
-    card.dataset.galgameRole = isUser ? "user" : roleName;
-    card.dataset.galgameUser = isUser ? "true" : "false";
-
-    const summary = targetDocument.createElement("summary");
-    const portrait = targetDocument.createElement(isUser ? "span" : "button");
-    portrait.className = "st-galgame-card__portrait";
-    if (!isUser) {
-      portrait.type = "button";
-      portrait.title = "打开" + roleName + "的人物档案";
-      portrait.setAttribute("aria-label", "打开" + roleName + "的人物档案");
-    }
-    const image = targetDocument.createElement("img");
-    image.alt = roleName;
-    image.loading = "eager";
-    image.decoding = "async";
-    const fallback = targetDocument.createElement("span");
-    fallback.className = "st-galgame-card__portrait-fallback";
-    fallback.textContent = isUser ? "YOU" : roleName.slice(0, 1) || "人";
-    portrait.append(image, fallback);
-
-    const identity = targetDocument.createElement("span");
-    identity.className = "st-galgame-card__identity";
-    const nameRow = targetDocument.createElement("span");
-    nameRow.className = "st-galgame-card__name-row";
-    const name = targetDocument.createElement("strong");
-    name.className = "st-galgame-card__name";
-    name.textContent = roleName;
-    nameRow.appendChild(name);
-    if (expression) {
-      const badge = targetDocument.createElement("span");
-      badge.className = "st-galgame-card__expression";
-      badge.textContent = expression;
-      nameRow.appendChild(badge);
-    }
-    identity.appendChild(nameRow);
-    const toggle = targetDocument.createElement("span");
-    toggle.className = "st-galgame-card__toggle";
-    toggle.setAttribute("aria-hidden", "true");
-    toggle.textContent = "⌃";
-    const sequence = targetDocument.createElement("span");
-    sequence.className = "st-galgame-card__index";
-    sequence.setAttribute("aria-hidden", "true");
-    sequence.textContent = "01";
-    summary.append(portrait, identity, sequence, toggle);
-
-    const body = targetDocument.createElement("span");
-    body.className = "st-galgame-card__body";
-    for (const segment of segments) {
-      const line = targetDocument.createElement("span");
-      const segmentClass = segment.kind === "动作" ? "action" : segment.kind === "思考" ? "thought" : "speech";
-      line.className = "st-galgame-card__segment st-galgame-card__segment--" + segmentClass;
-      line.textContent = segment.text;
-      body.appendChild(line);
-    }
-    if (!segments.length) {
-      const empty = targetDocument.createElement("span");
-      empty.className = "st-galgame-card__empty";
-      empty.textContent = "短暂的无言演出。";
-      body.appendChild(empty);
-    }
-    card.append(summary, body);
-    if (!isUser) {
-      hydrateGalgameCardNickname(card, roleName);
-      hydrateGalgameCardPhoto(card, roleName);
-    }
-    return card;
-  }
-
-  function decorateGalgameNarrativeSequence(container) {
-    const cards = Array.from(container?.querySelectorAll?.(".st-galgame-card") || []);
-    const tonesByRole = new Map();
-    const usedTones = new Set();
-    cards.forEach((card, index) => {
-      card.classList.remove("is-side-left", "is-side-right", "is-joined-prev", "is-joined-next");
-      card.classList.add(index % 2 === 0 ? "is-side-left" : "is-side-right");
-      card.dataset.galgameSequence = String(index + 1);
-      const roleKey = String(card.dataset.galgameRole || "user").trim() || "user";
-      if (!tonesByRole.has(roleKey)) {
-        let tone = card.dataset.galgameUser === "true" ? 6 : galgameRoleTone(roleKey);
-        while (usedTones.has(tone) && usedTones.size < 6) tone = (tone + 1) % 6;
-        tonesByRole.set(roleKey, tone);
-        usedTones.add(tone);
-      }
-      card.dataset.galgameTone = String(tonesByRole.get(roleKey));
-      const sequenceNode = card.querySelector(".st-galgame-card__index");
-      if (sequenceNode) sequenceNode.textContent = String(index + 1).padStart(2, "0");
-      card.style.setProperty("--gg-hue", String((206 + index * 137.508) % 360));
-    });
-    for (let index = 1; index < cards.length; index += 1) {
-      const previous = cards[index - 1];
-      const current = cards[index];
-      if (current.dataset.galgameJoinPrev !== "true") continue;
-      if (String(previous.dataset.galgameRole || "") === String(current.dataset.galgameRole || "")) continue;
-      previous.classList.add("is-joined-next");
-      current.classList.add("is-joined-prev");
-    }
-  }
-
-  function renderGalgameNarrativeMarkers(scope, targetDocument) {
-    const ownerDocument = targetDocument || scope?.ownerDocument || (scope?.nodeType === 9 ? scope : document);
-    if (!ownerDocument?.body) return;
-    const containers = [];
-    const root = scope || ownerDocument;
-    const elementNode = ownerDocument.defaultView?.Node?.ELEMENT_NODE ?? 1;
-    if (root?.nodeType === elementNode && root.matches?.(".mes_text")) containers.push(root);
-    if (root?.querySelectorAll) containers.push(...root.querySelectorAll(".mes_text"));
-    if (!containers.length && root === ownerDocument) containers.push(...ownerDocument.querySelectorAll(".mes_text"));
-    for (const container of [...new Set(containers)]) {
-      let rendered = false;
-      for (let pass = 0; pass < 8 && container?.textContent?.includes("⟪人物演出总块⟫"); pass += 1) {
-        const walker = ownerDocument.createTreeWalker(
-          container,
-          ownerDocument.defaultView?.NodeFilter?.SHOW_TEXT ?? 4
-        );
-        const textNodes = [];
-        let source = "";
-        while (walker.nextNode()) {
-          const node = walker.currentNode;
-          if (node.parentElement?.closest?.(".st-galgame-card,script,style")) continue;
-          const value = String(node.nodeValue || "");
-          if (!value) continue;
-          textNodes.push({ node, start: source.length, end: source.length + value.length });
-          source += value;
-        }
-        const match = source.match(GALGAME_MARKER_RE);
-        if (!match || match.index == null) break;
-        const entries = parseGalgameNarrativeEntries(match[1]);
-        if (!entries?.length) break;
-        const startIndex = match.index;
-        const endIndex = startIndex + match[0].length;
-        const start = textNodes.find((item) => startIndex >= item.start && startIndex <= item.end);
-        const end = [...textNodes].reverse().find((item) => endIndex >= item.start && endIndex <= item.end);
-        if (!start || !end) break;
-        const range = ownerDocument.createRange();
-        range.setStart(start.node, Math.max(0, startIndex - start.start));
-        range.setEnd(end.node, Math.max(0, endIndex - end.start));
-        const fragment = ownerDocument.createDocumentFragment();
-        entries.forEach((entry, index) => {
-          const card = createGalgameNarrativeCard(ownerDocument, entry);
-          if (index > 0) card.dataset.galgameJoinPrev = "true";
-          fragment.appendChild(card);
-        });
-        range.deleteContents();
-        range.insertNode(fragment);
-        rendered = true;
-      }
-      if (rendered || container.querySelector?.(".st-galgame-card")) {
-        decorateGalgameNarrativeSequence(container);
-      }
-    }
-  }
-
-  function scheduleGalgameNarrativeRender(scope, targetDocument) {
-    const ownerDocument = targetDocument || scope?.ownerDocument || (scope?.nodeType === 9 ? scope : document);
-    if (!ownerDocument?.body || galgameNarrativeScheduledDocuments.has(ownerDocument)) return;
-    galgameNarrativeScheduledDocuments.add(ownerDocument);
-    const requestFrame = ownerDocument.defaultView?.requestAnimationFrame?.bind(ownerDocument.defaultView) || window.requestAnimationFrame.bind(window);
-    requestFrame(() => {
-      galgameNarrativeScheduledDocuments.delete(ownerDocument);
-      renderGalgameNarrativeMarkers(ownerDocument, ownerDocument);
-    });
   }
 
   function splitTemporalClockLabel(value) {
@@ -8336,7 +7915,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function ensureTemporalNarrativeRenderer() {
-    registerGalgameHydrationProvider();
     for (const targetDocument of temporalNarrativeDocuments()) {
       ensureTemporalNarrativeDocument(targetDocument);
     }
@@ -18622,7 +18200,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     for (const key of [profilePhotoSlotsStorageKey(roleName), profileStablePhotoSlotsStorageKey(roleName)]) {
       if (profileSetPhotoStorage(key, JSON.stringify(state))) saved = true;
     }
-    if (saved) refreshGalgameCardsForRole(roleName);
     return saved;
   }
 
@@ -18699,7 +18276,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       } catch {}
       profileRemovePhotoStorage(key);
     });
-    refreshGalgameCardsForRole(roleName);
     return changed || keys.length > 0;
   }
 
