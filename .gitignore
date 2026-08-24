@@ -1,0 +1,5 @@
+# Local migration evidence and generated packages are intentionally not committed.
+legacy/
+dist/
+node_modules/
+*.log

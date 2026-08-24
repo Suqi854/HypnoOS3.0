@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-24T12:00:00.000Z",
+  "versions": {
+    "sillytavern": "1.18.0",
+    "tavernHelper": null,
+    "provider": null
+  },
+  "symbols": [
+    "SillyTavern.getContext",
+    "context.loadWorldInfo/context.saveWorldInfo",
+    "context.generateRaw"
+  ],
+  "notes": "Static source snapshot only. Tavern Helper and MVU are intentionally absent to exercise fallbacks."
+}

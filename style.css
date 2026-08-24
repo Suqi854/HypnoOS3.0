@@ -1,0 +1,140 @@
+:root {
+  --hypnoos3-edge: 10px;
+  --hypnoos3-panel-bg: rgba(5, 7, 15, 0.96);
+  --hypnoos3-border: rgba(148, 163, 184, 0.35);
+  --hypnoos3-accent: #67e8f9;
+}
+
+#hypnoos3-launcher,
+#hypnoos3-phone-host,
+#hypnoos3-control-host {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+#hypnoos3-launcher {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(96px, calc(env(safe-area-inset-bottom) + 72px));
+  z-index: 2147482000;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(103, 232, 249, 0.5);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #31465f, #0b1220 68%);
+  color: #e6fbff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
+  cursor: pointer;
+  touch-action: none;
+}
+
+#hypnoos3-launcher:focus-visible,
+#hypnoos3-phone-host button:focus-visible,
+#hypnoos3-control-host button:focus-visible,
+#hypnoos3-control-host input:focus-visible,
+#hypnoos3-control-host select:focus-visible,
+#hypnoos3-control-host textarea:focus-visible {
+  outline: 2px solid var(--hypnoos3-accent);
+  outline-offset: 2px;
+}
+
+#hypnoos3-phone-host {
+  position: fixed;
+  left: var(--hypnoos3-x, 20px);
+  top: var(--hypnoos3-y, 20px);
+  z-index: 2147482100;
+  width: min(430px, calc(100vw - 20px));
+  height: min(812px, calc(100dvh - 20px));
+  border: 1px solid var(--hypnoos3-border);
+  border-radius: 38px;
+  background: #05070f;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+#hypnoos3-phone-host[hidden],
+#hypnoos3-control-host[hidden] { display: none !important; }
+
+#hypnoos3-phone-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #05070f;
+}
+
+.hypnoos3-host-control {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 50%;
+  background: rgba(3, 7, 18, .78);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hypnoos3-host-control[data-action="close"] { right: 12px; }
+.hypnoos3-host-control[data-action="configure"] { left: 12px; }
+
+#hypnoos3-control-host {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482200;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, .62);
+}
+
+.hypnoos3-control-panel {
+  width: min(760px, 100%);
+  max-height: min(820px, 100%);
+  overflow: auto;
+  border: 1px solid var(--hypnoos3-border);
+  border-radius: 20px;
+  background: var(--hypnoos3-panel-bg);
+  color: #e5eef7;
+  box-shadow: 0 24px 80px rgba(0,0,0,.58);
+  padding: 18px;
+}
+
+.hypnoos3-control-panel h2,
+.hypnoos3-control-panel h3 { margin: 0 0 12px; }
+.hypnoos3-control-panel section { margin-block: 18px; }
+.hypnoos3-control-panel label { display: grid; gap: 6px; margin-block: 10px; }
+.hypnoos3-control-panel input,
+.hypnoos3-control-panel select,
+.hypnoos3-control-panel textarea,
+.hypnoos3-control-panel button {
+  min-height: 42px;
+  border: 1px solid rgba(148,163,184,.35);
+  border-radius: 10px;
+  background: rgba(15,23,42,.86);
+  color: inherit;
+  padding: 8px 10px;
+}
+.hypnoos3-control-panel button { cursor: pointer; }
+.hypnoos3-control-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hypnoos3-status { min-height: 1.5em; color: #a5f3fc; }
+.hypnoos3-list { display: grid; gap: 8px; padding: 0; list-style: none; }
+.hypnoos3-list > li { border: 1px solid rgba(148,163,184,.2); border-radius: 12px; padding: 10px; }
+.hypnoos3-danger { color: #fecaca; }
+
+@media (max-width: 760px), (pointer: coarse) {
+  #hypnoos3-phone-host {
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hypnoos3-launcher,
+  #hypnoos3-phone-host,
+  #hypnoos3-control-host { transition: none !important; animation: none !important; }
+}

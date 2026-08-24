@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "minimum": {
+    "sillytavern": "1.18.0",
+    "tavernHelper": null
+  },
+  "requirements": [
+    {
+      "id": "host-context",
+      "owner": "sillytavern",
+      "symbol": "SillyTavern.getContext",
+      "required": true,
+      "fallback": null
+    },
+    {
+      "id": "worldbook-read-write",
+      "owner": "sillytavern",
+      "symbol": "context.loadWorldInfo/context.saveWorldInfo",
+      "required": true,
+      "fallback": null
+    },
+    {
+      "id": "host-generation",
+      "owner": "sillytavern",
+      "symbol": "context.generateRaw",
+      "required": false,
+      "fallback": "模型适配向导禁用酒馆连接，仍可使用 OpenAI-compatible 连接或手动编辑。"
+    },
+    {
+      "id": "tavern-helper-bridge",
+      "owner": "tavern-helper",
+      "symbol": "getVariables/updateVariablesWith",
+      "required": false,
+      "fallback": "使用 HypnoOS 自带的聊天元数据状态库。"
+    },
+    {
+      "id": "mvu-bridge",
+      "owner": "provider",
+      "symbol": "Mvu.getMvuData/Mvu.replaceMvuData",
+      "required": false,
+      "fallback": "使用 HypnoState/v1；仅关闭 MVU 同步。"
+    }
+  ]
+}

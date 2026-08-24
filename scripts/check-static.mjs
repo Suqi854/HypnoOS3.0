@@ -1,0 +1,47 @@
+import { createHash } from 'node:crypto';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = new URL('../', import.meta.url);
+const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
+const failures = [];
+const expect = (condition, message) => { if (!condition) failures.push(message); };
+
+expect(manifest.minimum_client_version === '1.18.0', 'minimum_client_version 必须锁定 1.18.0');
+expect(/^\d+\.\d+\.\d+$/.test(manifest.version), 'manifest 版本不是 SemVer');
+for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
+  try { await stat(new URL(path, root)); } catch { failures.push(`缺少清单文件：${path}`); }
+}
+
+const ui = await readFile(new URL('ui/index.html', root));
+const uiHash = createHash('sha256').update(ui).digest('hex');
+expect(uiHash === 'd7cd4a890092dd5726837c66da26a701db89463e5016e5400a8e388670efd623', `UI 基线哈希变化：${uiHash}`);
+
+async function files(dir) {
+  const result = [];
+  for (const name of await readdir(dir)) {
+    const path = join(dir, name);
+    const info = await stat(path);
+    if (info.isDirectory()) result.push(...await files(path));
+    else if (/\.(?:js|mjs)$/.test(name)) result.push(path);
+  }
+  return result;
+}
+
+const rootPath = fileURLToPath(root);
+const sourceRoot = fileURLToPath(new URL('src/', root));
+for (const path of await files(sourceRoot)) {
+  const text = await readFile(path, 'utf8');
+  const label = relative(rootPath, path);
+  expect(!/\beval\s*\(/.test(text), `${label} 使用 eval`);
+  expect(!/new\s+Function\s*\(/.test(text), `${label} 使用 new Function`);
+  expect(!/https?:\/\/[^'"`\s]*\.(?:js|mjs)(?:[?'"`\s]|$)/i.test(text), `${label} 引用远程脚本`);
+  expect(!/innerHTML\s*=/.test(text), `${label} 对 innerHTML 赋值`);
+  expect(!/(?:sk-|api[_-]?key\s*[:=]\s*['"])[A-Za-z0-9_-]{12,}/i.test(text), `${label} 疑似包含 API 密钥`);
+}
+
+if (failures.length) {
+  console.error(failures.map((item) => `FAIL ${item}`).join('\n'));
+  process.exitCode = 1;
+} else console.log(`PASS static checks; UI baseline ${uiHash}`);

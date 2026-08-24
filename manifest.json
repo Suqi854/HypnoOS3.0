@@ -1,0 +1,16 @@
+{
+  "display_name": "催眠手机 HypnoOS 3.0",
+  "loading_order": 100,
+  "js": "index.js",
+  "css": "style.css",
+  "author": "Suqi854；原催眠APP作者与二改作者见 NOTICE.md",
+  "version": "0.5.0",
+  "minimum_client_version": "1.18.0",
+  "homePage": "https://github.com/Suqi854/HypnoOS3.0",
+  "auto_update": false,
+  "hooks": {
+    "enable": "enable",
+    "disable": "disable",
+    "clean": "clean"
+  }
+}
