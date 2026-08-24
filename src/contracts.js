@@ -153,6 +153,11 @@ export function makeOperation(input) {
 }
 
 export function toLegacyVariables(state) {
+  const recordBy = (items, prefix) => Object.fromEntries((Array.isArray(items) ? items : []).map((item, index) => {
+    const value = isRecord(item) ? clone(item) : { value: item };
+    const key = String(value.id || value.name || value.title || value.名称 || value.任务名 || `${prefix}-${index + 1}`);
+    return [key, value];
+  }));
   const roles = {};
   for (const role of Object.values(state.roles || {})) {
     if (!role?.name) continue;
@@ -169,10 +174,8 @@ export function toLegacyVariables(state) {
   return {
     系统: {
       MC能量: state.resources.mcEnergy,
-      _MC能量: state.resources.mcEnergy,
       MC能量上限: state.resources.mcEnergyMax,
-      _MC能量上限: state.resources.mcEnergyMax,
-      当前MC点: state.resources.mcPoints,
+      星光点: state.resources.mcPoints,
       持有零花钱: state.resources.money,
       主角可疑度: state.resources.suspicion,
       当前年份: state.time.year,
@@ -182,23 +185,26 @@ export function toLegacyVariables(state) {
       _当前日程: state.time.scheduleLabel,
       _当前特殊日期: state.time.specialDate,
       当前地点: state.location.current,
+      当前事件: String(state.custom?.currentEvent || ''),
+      当前出场角色: Array.isArray(state.custom?.presentRoles) ? clone(state.custom.presentRoles) : [],
       _课程表: state.timetable,
-      _hypnoos: {
-        schema: state.schema,
-        tasks: state.tasks,
-        achievements: state.achievements,
-        work: state.work,
-        dispatches: state.dispatches,
-        inventory: state.inventory,
-        operationQueue: state.operationQueue,
+      催眠APP订阅等级: String(state.custom?.subscriptionLevel || 'VIP0'),
+      _警视厅线: Number(state.custom?.policeLine || 0),
+      _医院线: Number(state.custom?.hospitalLine || 0),
+      派遣岗位: {
+        '1号门': clone(state.dispatches?.[0] || { 角色名: '', 派遣工作: '', 派遣开始时间: '', 派遣结束时间: '' }),
+        '2号门': clone(state.dispatches?.[1] || { 角色名: '', 派遣工作: '', 派遣开始时间: '', 派遣结束时间: '' }),
+        '3号门': clone(state.dispatches?.[2] || { 角色名: '', 派遣工作: '', 派遣开始时间: '', 派遣结束时间: '' }),
       },
+      持有物品: recordBy(state.inventory, 'item'),
+      _社畜值: Number(state.custom?.workValue || 0),
+      _buff: String(state.custom?.buff || ''),
+      _buff结束时间: String(state.custom?.buffEndTime || ''),
+      _user身份: isRecord(state.custom?.userIdentity) ? clone(state.custom.userIdentity) : {},
     },
     规则: state.custom?.rules || {},
     角色: roles,
-    地点: { 当前地点: state.location.current, 新增地点: state.location.custom },
-    库存: state.inventory,
-    任务: state.tasks,
-    成就: state.achievements,
+    任务: recordBy(state.tasks, 'task'),
   };
 }
 
@@ -211,7 +217,7 @@ export function fromLegacyVariables(legacy, current, regionPack) {
 
   next.resources.mcEnergy = number(system.MC能量 ?? system._MC能量, next.resources.mcEnergy);
   next.resources.mcEnergyMax = number(system.MC能量上限 ?? system._MC能量上限, next.resources.mcEnergyMax);
-  next.resources.mcPoints = number(system.当前MC点, next.resources.mcPoints);
+  next.resources.mcPoints = number(system.星光点 ?? system.当前MC点, next.resources.mcPoints);
   next.resources.money = number(system.持有零花钱, next.resources.money);
   next.resources.suspicion = number(system.主角可疑度, next.resources.suspicion);
   next.time = {
@@ -225,6 +231,19 @@ export function fromLegacyVariables(legacy, current, regionPack) {
   };
   next.location.current = String(system.当前地点 ?? legacy.地点?.当前地点 ?? next.location.current);
   if (Array.isArray(system._课程表)) next.timetable = clone(system._课程表);
+  next.custom = {
+    ...next.custom,
+    currentEvent: String(system.当前事件 ?? next.custom.currentEvent ?? ''),
+    presentRoles: Array.isArray(system.当前出场角色) ? clone(system.当前出场角色) : next.custom.presentRoles || [],
+    subscriptionLevel: String(system.催眠APP订阅等级 ?? next.custom.subscriptionLevel ?? 'VIP0'),
+    policeLine: number(system._警视厅线, next.custom.policeLine || 0),
+    hospitalLine: number(system._医院线, next.custom.hospitalLine || 0),
+    workValue: number(system._社畜值, next.custom.workValue || 0),
+    buff: String(system._buff ?? next.custom.buff ?? ''),
+    buffEndTime: String(system._buff结束时间 ?? next.custom.buffEndTime ?? ''),
+    userIdentity: isRecord(system._user身份) ? clone(system._user身份) : next.custom.userIdentity || {},
+  };
+  if (isRecord(system.派遣岗位)) next.dispatches = Object.values(system.派遣岗位).map(clone);
   for (const [name, value] of Object.entries(isRecord(legacy.角色) ? legacy.角色 : {})) {
     if (!isRecord(value)) continue;
     const id = String(value._hypnoos角色ID || Object.values(next.roles).find((role) => role.name === name)?.id || makeId('role'));
@@ -246,12 +265,14 @@ export function fromLegacyVariables(legacy, current, regionPack) {
       },
     };
   }
-  for (const key of ['inventory', 'tasks', 'achievements', 'work', 'dispatches', 'operationQueue']) {
+  for (const key of ['inventory', 'work', 'dispatches', 'operationQueue']) {
     if (Array.isArray(privateStore[key])) next[key] = clone(privateStore[key]);
   }
-  if (Array.isArray(legacy.库存)) next.inventory = clone(legacy.库存);
-  if (Array.isArray(legacy.任务)) next.tasks = clone(legacy.任务);
-  if (Array.isArray(legacy.成就)) next.achievements = clone(legacy.成就);
+  const values = (value) => Array.isArray(value) ? clone(value) : isRecord(value) ? Object.entries(value).map(([id, item]) => isRecord(item) ? { id, ...clone(item) } : { id, value: item }) : [];
+  if (Array.isArray(system.持有物品) || isRecord(system.持有物品)) next.inventory = values(system.持有物品);
+  if (Array.isArray(legacy.库存) || isRecord(legacy.库存)) next.inventory = values(legacy.库存);
+  if (Array.isArray(legacy.任务) || isRecord(legacy.任务)) next.tasks = values(legacy.任务);
+  if (Array.isArray(legacy.成就) || isRecord(legacy.成就)) next.achievements = values(legacy.成就);
   next.custom.rules = isRecord(legacy.规则) ? clone(legacy.规则) : next.custom.rules;
   return normalizeState(next, regionPack);
 }

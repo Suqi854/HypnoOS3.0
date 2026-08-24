@@ -16,7 +16,13 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === 'd7cd4a890092dd5726837c66da26a701db89463e5016e5400a8e388670efd623', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '303ff97170e8117e8b111070907ac67c720e5f508998db4f0560cc9b58126fd4', `UI 基线哈希变化：${uiHash}`);
+const floatingHost = await readFile(new URL('public/floating-bootstrap.js', root), 'utf8');
+for (const marker of ['data-phone-drag', 'pet-character-toggle', 'sidecar', 'launcher']) {
+  expect(floatingHost.includes(marker), `4.3 悬浮宿主缺少关键能力：${marker}`);
+}
+const extensionSource = await readFile(new URL('src/extension.js', root), 'utf8');
+expect(!extensionSource.includes('hypnoos3-launcher'), '不得重新引入自制 H 启动器');
 
 async function files(dir) {
   const result = [];
