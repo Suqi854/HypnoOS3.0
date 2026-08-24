@@ -1918,15 +1918,17 @@ html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{
     };
     const buildPendingOperationText = (entries = window.__ST_OPERATION_INPUT_LOG__) => {
       const parts = [];
+      const playerInput = readOperationNote();
+      if (playerInput) parts.push(playerInput);
       if (Array.isArray(entries) && entries.length) parts.push(buildOperationBlock(entries));
-      const note = readOperationNote();
-      if (note) parts.push(note);
       return parts.join("\n");
     };
     const stripOperationBlocks = (value) => String(value || "").replace(OPERATION_BLOCK_RE, "").replace(/[ \t]*\n{3,}/g, "\n\n").trim();
     const writeOperationBlockToInput = (input, block) => {
       const current = "value" in input ? input.value : input.textContent;
-      const base = stripOperationBlocks(current);
+      const playerInput = readOperationNote();
+      const stripped = stripOperationBlocks(current);
+      const base = playerInput ? "" : stripped;
       const next = base ? base + "\n" + block : block;
       if ("value" in input) input.value = next;
       else input.textContent = next;
@@ -1987,6 +1989,14 @@ html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{
         }
       }
       return null;
+    };
+    const capturePlayerTurnInput = () => {
+      const input = findOperationInput();
+      if (!input) return readOperationNote();
+      const current = "value" in input ? input.value : input.textContent;
+      const playerInput = stripOperationBlocks(current);
+      if (playerInput && !readOperationNote()) writeOperationNote(playerInput, { emit: true });
+      return readOperationNote();
     };
     const OPERATION_DUPLICATE_WARN_KEY = "hypnoos.operation.confirm.noDuplicateWarn.v1";
     const hasExistingOperationBlock = (input) => OPERATION_BLOCK_RE.test(String(("value" in input ? input.value : input.textContent) || ""));
@@ -2068,6 +2078,7 @@ html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{
     };
     window.__ST_GET_PENDING_OPERATION_NOTE__ = () => readOperationNote();
     window.__ST_SET_PENDING_OPERATION_NOTE__ = (value, options) => writeOperationNote(value, options);
+    window.__ST_CAPTURE_PLAYER_TURN_INPUT__ = capturePlayerTurnInput;
     window.__ST_BUILD_PENDING_OPERATION_BLOCK__ = () => {
       pruneExpiredWorkOperationsIfReady();
       return buildPendingOperationText();
@@ -3197,7 +3208,8 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
     work: stInlineAppIcon("#d97706", '<rect x="16" y="23" width="40" height="31" rx="5"/><path d="M28 23v-6h16v6"/><path d="M16 35h40"/><path d="M36 35v5"/><path d="M26 49h20"/>'),
     encounter: stInlineAppIcon("#f43f5e", '<path d="M24 55c0-8 5-13 12-13s12 5 12 13"/><circle cx="36" cy="29" r="8"/><path d="M16 25c5-8 12-12 20-12s15 4 20 12"/><path d="M55 13l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5"/>'),
     help: stInlineAppIcon("#64748b", '<circle cx="36" cy="36" r="21"/><path d="M29 29a7.5 7.5 0 0 1 14 3c0 5-7 5.5-7 11"/><path d="M36 50h.01"/>'),
-    settings: stInlineAppIcon("#3f3f46", '<circle cx="36" cy="36" r="8"/><path d="M36 13v8"/><path d="M36 51v8"/><path d="M13 36h8"/><path d="M51 36h8"/><path d="m20 20 6 6"/><path d="m46 46 6 6"/><path d="m52 20-6 6"/><path d="m26 46-6 6"/>')
+    settings: stInlineAppIcon("#3f3f46", '<circle cx="36" cy="36" r="8"/><path d="M36 13v8"/><path d="M36 51v8"/><path d="M13 36h8"/><path d="M51 36h8"/><path d="m20 20 6 6"/><path d="m46 46 6 6"/><path d="m52 20-6 6"/><path d="m26 46-6 6"/>'),
+    pendingInput: stInlineAppIcon("#b45309", '<path d="M21 18h30v36H21z"/><path d="M28 28h16"/><path d="M28 36h16"/><path d="M28 44h9"/><circle cx="19" cy="28" r="2"/><circle cx="19" cy="36" r="2"/><circle cx="19" cy="44" r="2"/>')
   };
   const ST_DEFAULT_PROFILE_PHOTOS = {
     "西园寺爱丽莎": stAssetUrl("profiles/saionji-alisa.png"),
@@ -4078,6 +4090,8 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-mchan-board.active{background:linear-gradient(135deg,rgba(34,211,238,.24),rgba(168,85,247,.2));border-color:rgba(125,211,252,.45);color:white}
 .st-drag-scroll{cursor:grab;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scroll-behavior:auto}
 .st-drag-scroll.is-dragging{cursor:grabbing;user-select:none}
+#app>.w-full.flex.items-center.justify-center.p-2{height:100%!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important}
+#app>.w-full.flex.items-center.justify-center.p-2>div:first-child{width:100%!important;max-width:none!important;height:100%!important;aspect-ratio:auto!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 .st-mchan-content{flex:1;min-height:0;background:transparent}
 .st-mchan-content.is-list{display:flex;flex-direction:column}
 .st-mchan-content.is-detail{display:block;overflow:auto;padding:12px}
@@ -5428,6 +5442,19 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   border:3px double var(--dq-gold,#e7c46a)!important;border-radius:5px!important;background:linear-gradient(#172548,#080d20)!important;color:#f7f1dc!important
 }
 @media (max-width:500px){#st-operation-side-panel{border-radius:6px!important}.st-operation-item{grid-template-columns:28px minmax(0,1fr)!important;padding:8px!important}.st-operation-item-icon{width:28px!important;height:28px!important}}
+.st-operation-phone-app{background:linear-gradient(180deg,#111a36,#050919);color:#f7f1dc}
+.st-operation-phone-app .st-lite-body{min-height:0;padding:8px 9px 12px;overflow:hidden}
+.st-operation-phone-app #st-operation-side-panel{position:relative!important;width:100%!important;min-width:0!important;height:100%!important;max-height:none!important;border-radius:6px!important;box-shadow:inset 0 0 0 1px #070b16!important}
+.st-operation-phone-app .st-operation-panel-head{padding:9px 9px 7px!important}
+.st-operation-phone-app .st-operation-panel-list{padding:7px!important}
+.st-operation-phone-app .st-operation-item{grid-template-columns:28px minmax(0,1fr)!important;padding:8px!important}
+.st-operation-phone-app .st-operation-item-icon{width:28px!important;height:28px!important}
+.st-operation-phone-app .st-operation-note{margin:0 7px 7px!important}
+.st-operation-phone-app .st-operation-note textarea{min-height:64px!important;max-height:112px!important;resize:none!important}
+.st-operation-phone-app .st-operation-panel-preview{max-height:82px;overflow:auto}
+.st-operation-phone-app .st-operation-keep{margin:0 7px 7px!important}
+.st-operation-phone-app .st-operation-panel-actions{padding:8px!important}
+.st-operation-phone-app .st-operation-float-toggle{display:none!important}
 .st-operation-warning{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:rgba(2,6,23,.58);backdrop-filter:blur(8px);padding:22px}
 .st-operation-warning-card{width:min(340px,calc(100vw - 44px));border:1px solid rgba(244,114,182,.35);border-radius:20px;background:linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.96));box-shadow:0 24px 70px rgba(0,0,0,.48);padding:16px;color:#f8fafc}
 .st-operation-warning-card strong{display:block;font-size:15px;line-height:1.25}
@@ -7954,7 +7981,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function cleanupPhoneInternalOverlay(element) {
     if (!element) return;
-    for (const key of ["__stHypnosisCleanup", "__stWorkCleanup", "__stCameraCleanup", "__stMonitorCleanup", "__stClockCleanup", "__stCampusCleanup", "__stMapCleanup", "__stSpecialLocationCleanup", "__stProfileCleanup", "__stEncounterCleanup"]) {
+    for (const key of ["__stHypnosisCleanup", "__stWorkCleanup", "__stCameraCleanup", "__stMonitorCleanup", "__stClockCleanup", "__stCampusCleanup", "__stMapCleanup", "__stSpecialLocationCleanup", "__stProfileCleanup", "__stEncounterCleanup", "__stPendingInputCleanup"]) {
       try { element[key]?.(); } catch {}
       try { delete element[key]; } catch {}
     }
@@ -7975,7 +8002,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     root?.classList?.remove?.("st-rule-radar-open");
     root?.parentElement?.classList?.remove?.("st-rule-radar-stage");
     document.querySelectorAll?.("body > .st-location-rule-radar-bridge").forEach((bridge) => removeLocationRuleRadarBridge(bridge));
-    root?.querySelectorAll?.(".st-location-rule-radar-bridge,.st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-hospital-remodel-app,.st-help-app,.st-settings-app,.st-placeholder-app,.st-hypnosis-trance-overlay,#st-hypnoos-identity-inline-frame,[data-st-hypnoos-identity-inline],#st-hypnoos-identity-frontend-host,#identityRoot,.identity-root").forEach((element) => {
+    root?.querySelectorAll?.(".st-location-rule-radar-bridge,.st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-hospital-remodel-app,.st-help-app,.st-settings-app,.st-placeholder-app,.st-operation-phone-app,.st-hypnosis-trance-overlay,#st-hypnoos-identity-inline-frame,[data-st-hypnoos-identity-inline],#st-hypnoos-identity-frontend-host,#identityRoot,.identity-root").forEach((element) => {
       cleanupPhoneInternalOverlay(element);
       element.remove();
     });
@@ -40037,6 +40064,45 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     renderCameraPage(page);
   }
 
+  function closePendingInputPage(page) {
+    if (!page) return;
+    cleanupPhoneInternalOverlay(page);
+    const root = page.parentElement;
+    setPhoneActiveApp(root, "");
+    page.remove();
+    void applyHomeWallpaper(root);
+  }
+
+  function openPendingInputPage(tile) {
+    ensureStyle();
+    ensurePhoneDarkThemeStyle();
+    const root = findPhoneRoot(tile);
+    if (!root) return;
+    setPhoneActiveApp(root, "pending-input");
+    root.style.position = root.style.position || "relative";
+    clearPhoneInternalOverlays(root);
+    window.__ST_CAPTURE_PLAYER_TURN_INPUT__?.();
+    const page = document.createElement("section");
+    page.className = "st-lite-app st-operation-phone-app";
+    page.setAttribute("aria-label", "本轮输入");
+    page.innerHTML = renderLiteHeader(page, { title: "本轮输入", islandText: "INPUT" }) +
+      '<main class="st-lite-body"><aside id="st-operation-side-panel" aria-label="本轮输入与操作暂存"></aside></main>';
+    root.appendChild(page);
+    bindLiteHeader(page, () => updateOperationSidePanel());
+    page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => closePendingInputPage(page));
+    const panel = page.querySelector("#st-operation-side-panel");
+    bindOperationSidePanel(panel);
+    panel.dataset.signature = "";
+    updateOperationSidePanel();
+    const refresh = () => {
+      if (!page.isConnected) return;
+      panel.dataset.signature = "";
+      updateOperationSidePanel();
+    };
+    window.addEventListener("HYPNOOS_OPERATION_QUEUE_CHANGED", refresh);
+    page.__stPendingInputCleanup = () => window.removeEventListener("HYPNOOS_OPERATION_QUEUE_CHANGED", refresh);
+  }
+
   window.__ST_OPEN_MCHAN_APP__ = () => openMchanPage();
   window.__ST_OPEN_PROFILE_APP__ = (tab, roleName) => openPersonProfilePage(null, tab, roleName);
   window.__ST_OPEN_FEMALE_PROFILE_APP__ = (tab, roleName) => openFemaleProfilePage(null, tab, roleName);
@@ -40068,12 +40134,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   window.__ST_OPEN_HYPNOSIS_LITE_APP__ = () => openHypnosisLitePage();
   window.__ST_OPEN_HELP_APP__ = () => openHelpLitePage();
   window.__ST_OPEN_SETTINGS_APP__ = () => openSettingsPage();
+  window.__ST_OPEN_PENDING_INPUT_APP__ = () => openPendingInputPage();
   window.__ST_OPEN_PLACEHOLDER_APP__ = (appName, title, subtitle) => openPlaceholderPage(null, appName, title, subtitle);
 
   function looksLikePhoneHome(root) {
     const rootText = root?.innerText || "";
     return ["催眠APP", "日历", "成就和任务", "库存", "MC匿名版"].every((label) => rootText.includes(label)) &&
-      !root.querySelector(".st-mchan-internal-app, .st-calendar-lite-app, .st-timetable-app, .st-clock-app, .st-profile-app, .st-map-app, .st-city-map-app, .st-school-app, .st-special-location-app, .st-monitor-app, .st-work-app, .st-camera-app, .st-wallpaper-app, .st-encounter-app, .st-inventory-app, .st-reward-app, .st-hypnosis-lite-app, .st-help-app, .st-settings-app, .st-placeholder-app");
+      !root.querySelector(".st-mchan-internal-app, .st-calendar-lite-app, .st-timetable-app, .st-clock-app, .st-profile-app, .st-map-app, .st-city-map-app, .st-school-app, .st-special-location-app, .st-monitor-app, .st-work-app, .st-camera-app, .st-wallpaper-app, .st-encounter-app, .st-inventory-app, .st-reward-app, .st-hypnosis-lite-app, .st-help-app, .st-settings-app, .st-placeholder-app, .st-operation-phone-app");
   }
 
   function getHomeHeader(root) {
@@ -40569,6 +40636,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       block = window.__ST_BUILD_PENDING_OPERATION_BLOCK__?.() || "";
     } catch {}
     const note = readOperationPanelNote();
+    const hasContent = count > 0 || Boolean(note.trim());
     const keepAfterFlush = Boolean(window.__ST_READ_OPERATION_KEEP_AFTER_FLUSH__?.());
     const floatMode = readOperationFloatMode();
     const resources = operationPanelResourceSnapshot();
@@ -40599,18 +40667,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
             '</div>' +
           '</article>';
         }).join("")
-      : '<div class="st-operation-empty"><span aria-hidden="true">◇</span><strong>本轮还没有暂存内容</strong><p>领取、接任务、购买或启动催眠后，会先在这里确认内容与锁定状态。</p></div>';
+      : '<div class="st-operation-empty"><span aria-hidden="true">◇</span><strong>' + (note.trim() ? '玩家输入已暂存' : '本轮还没有暂存内容') + '</strong><p>' + (note.trim() ? '可以继续编辑玩家本轮输入，或返回其他应用追加操作。' : '先填写玩家本轮输入；领取、接任务、购买或启动催眠后，应用操作也会加入这里。') + '</p></div>';
     const adviceHtml = operationPanelAdviceHtml(items, block);
     panel.innerHTML =
       '<header class="st-operation-panel-head">' +
-        '<div class="st-operation-panel-title"><strong>本轮操作暂存</strong><span class="st-operation-panel-subtitle">共 ' + String(count) + ' 条' + (lockedCount ? ' · ' + String(lockedCount) + ' 条已锁定' : '') + '</span>' + operationPanelContextHtml(context) + '</div>' +
+        '<div class="st-operation-panel-title"><strong>本轮输入暂存</strong><span class="st-operation-panel-subtitle">玩家输入' + (note.trim() ? '已暂存' : '未填写') + ' · APP操作 ' + String(count) + ' 条' + (lockedCount ? ' · ' + String(lockedCount) + ' 条已锁定' : '') + '</span>' + operationPanelContextHtml(context) + '</div>' +
         '<div class="st-operation-panel-meta">' + operationPanelResourcesHtml(resources) + '<span class="st-operation-count-pill">' + String(count) + '</span></div>' +
       '</header>' +
       '<div class="st-operation-panel-list">' + listHtml + '</div>' +
       adviceHtml +
       '<label class="st-operation-note">' +
-        '<span>备注</span>' +
-        '<textarea data-operation-note rows="2" placeholder="写给AI的普通备注，会放在本轮操作外">' + escapeHtml(note) + '</textarea>' +
+        '<span>玩家本轮输入</span>' +
+        '<textarea data-operation-note rows="3" placeholder="输入玩家这一轮要发送给 AI 的内容">' + escapeHtml(note) + '</textarea>' +
       '</label>' +
       '<details class="st-operation-panel-preview">' +
         '<summary>将写入输入框的内容</summary>' +
@@ -40622,9 +40690,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       '</label>' +
       '<div class="st-operation-panel-actions">' +
         '<button class="st-operation-float-toggle" type="button" data-operation-panel-action="float">' + (floatMode ? "停靠暂存区" : "悬浮球模式") + '</button>' +
-        '<button type="button" data-operation-panel-action="clear" ' + (count ? "" : "disabled") + '>清空</button>' +
+        '<button type="button" data-operation-panel-action="clear" ' + (hasContent ? "" : "disabled") + '>清空</button>' +
         (lockedCount ? '<button class="danger" type="button" data-operation-panel-action="force-clear">解锁清空</button>' : '') +
-        '<button class="primary" type="button" data-operation-panel-action="flush" ' + (count ? "" : "disabled") + '>确认写入</button>' +
+        '<button class="primary" type="button" data-operation-panel-action="flush" ' + (hasContent ? "" : "disabled") + '>写入输入框</button>' +
       '</div>';
     syncOperationFloatBall();
   }
@@ -40637,8 +40705,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       if (!noteInput) return;
       writeOperationPanelNote(noteInput.value, { emit: false });
       const count = pendingOperationCount();
+      const hasContent = count > 0 || Boolean(noteInput.value.trim());
       panel.querySelectorAll('[data-operation-panel-action="clear"],[data-operation-panel-action="flush"]').forEach((button) => {
-        button.disabled = !count;
+        button.disabled = !hasContent;
       });
       const badge = panel.querySelector(".st-operation-count-pill");
       if (badge) badge.textContent = String(count);
@@ -40720,13 +40789,20 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function ensureOperationSidePanel() {
 	if (window.__ST_HYPNOOS_FLOATING_PHONE__) {
 	  document.body.classList.remove("st-operation-side-layout", "st-operation-floating-open");
-	  document.getElementById("st-operation-side-panel")?.remove();
+	  const phonePanel = document.querySelector(".st-operation-phone-app #st-operation-side-panel");
+	  const externalPanel = document.getElementById("st-operation-side-panel");
+	  if (externalPanel && externalPanel !== phonePanel) externalPanel.remove();
 	  document.getElementById("st-operation-float-ball")?.remove();
 	  const workspace = document.getElementById("st-operation-workspace");
 	  const app = document.getElementById("app");
 	  if (workspace && app && app.parentElement === workspace && workspace.parentElement) {
 	    workspace.parentElement.insertBefore(app, workspace);
 	    workspace.remove();
+	  }
+	  if (phonePanel) {
+	    bindOperationSidePanel(phonePanel);
+	    updateOperationSidePanel();
+	    return phonePanel;
 	  }
 	  return null;
 	}
@@ -40872,6 +40948,26 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
   }
 
+  function patchPendingInputTile() {
+    const root = findPhoneRoot(document.body);
+    if (!root || !looksLikePhoneHome(root)) return;
+    const settingsTile = findHomeTileByText("设置");
+    if (!settingsTile?.parentElement) return;
+    let tile = dedupeHomeTilesByText("本轮输入") || settingsTile.parentElement.querySelector('[data-st-pending-input-tile="true"]');
+    const created = !tile;
+    if (!tile) {
+      tile = settingsTile.cloneNode(true);
+      tile.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      for (const key of Object.keys(tile.dataset || {})) delete tile.dataset[key];
+      setHomeTileLabel(tile, "本轮输入");
+      tile.dataset.homeAppId = "pending-input";
+      settingsTile.insertAdjacentElement("afterend", tile);
+    }
+    tile.dataset.stPendingInputTile = "true";
+    if (created) setHomeTileIcon(tile, ST_APP_ICONS.pendingInput, "本轮输入");
+    bindHomeTileAction(tile, "stPendingInputTilePatched", "打开本轮输入", openPendingInputPage);
+  }
+
   function patchHomeTile() {
     const root = findPhoneRoot(document.body);
     if (root && looksLikePhoneHome(root)) void applyHomeWallpaper(root);
@@ -40882,8 +40978,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     patchPersonProfileTile();
     patchCalendarAndTimetableTiles();
     patchMapAndSchoolTiles();
+    patchPendingInputTile();
     const labels = Array.from(document.querySelectorAll("span,button,div"))
-      .filter((element) => !element.closest(".st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-help-app,.st-settings-app,.st-placeholder-app") && element.textContent?.trim() === "MC匿名版");
+      .filter((element) => !element.closest(".st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-help-app,.st-settings-app,.st-placeholder-app,.st-operation-phone-app") && element.textContent?.trim() === "MC匿名版");
     for (const label of labels) {
       const tile = findTileFromLabel(label);
       if (!tile || tile.dataset.stMchanInternalPatched === "true") continue;
