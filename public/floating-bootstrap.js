@@ -9,6 +9,10 @@
     assetBase: String(script.dataset.assetBase || ""),
     vendorBase: String(script.dataset.vendorBase || ""),
     bridgeKey: String(script.dataset.bridgeKey || ""),
+    singletonKey: String(script.dataset.singletonKey || "__ST_HYPNOOS_FLOATING_SINGLETON__"),
+    hostId: String(script.dataset.hostId || "hypnoos-floating-phone-host"),
+    registryEvent: String(script.dataset.registryEvent || "HYPNOOS_FLOATING_REGISTRY_READY"),
+    storageKey: String(script.dataset.storageKey || "hypnoos.floatingPhone.ui.v1"),
     revision: String(script.dataset.revision || "local"),
     mode: String(script.dataset.mode || "stage"),
   };
@@ -158,7 +162,7 @@
     var petVisibilityHandler = null;
     var stageSubscribers = new Set();
     var shellOpen = false;
-    var storageKey = "hypnoos.floatingPhone.ui.v1";
+    var storageKey = config.storageKey;
     var mountTimer = 0;
     var profileOpenTimer = 0;
     var pendingProfileRole = "";
@@ -1996,7 +2000,8 @@
 
     function bridgePrelude() {
       var asset = JSON.stringify(config.assetBase);
-      return "<script>(function(){var r=parent.__ST_HYPNOOS_FLOATING_SINGLETON__;window.__ST_HYPNOOS_FLOATING_PHONE__=true;window.__ST_HYPNOOS_FLOATING_REGISTRY__=r;window.__ST_HYPNOOS_ASSET_BASE__=" + asset + ";" +
+      var singletonKey = JSON.stringify(config.singletonKey);
+      return "<script>(function(){var r=parent[" + singletonKey + "];window.__ST_HYPNOOS_FLOATING_PHONE__=true;window.__ST_HYPNOOS_FLOATING_REGISTRY__=r;window.__ST_HYPNOOS_ASSET_BASE__=" + asset + ";" +
         "function option(o){return r.normalizeMessageOption(o)}function writeOption(o){return r.normalizeWriteMessageOption(o)}" +
         "globalThis.getCurrentMessageId=function(){return r.getSelectedId()};" +
         "globalThis.__ST_HYPNOOS_REQUIRE_WRITABLE_FLOOR__=function(){if(r.isWritable())return true;r.notifyReadOnly();return false};" +
@@ -2006,6 +2011,7 @@
         "if(r.hasApi('setChatMessages'))globalThis.setChatMessages=function(){return r.guardedApi('setChatMessages',Array.prototype.slice.call(arguments))};" +
         "globalThis.getContext=function(){return r.getContext()};" +
         "globalThis.__ST_HYPNOOS_HOST_REQUEST_HEADERS__=function(){return r.getRequestHeaders()};" +
+        "globalThis.__ST_HYPNOOS_DIRECT_SEND__=function(t){return r.directSend(t)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_PROFILE_NEIGHBORS__=function(p){return r.updateProfileNeighbors(p)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_PROFILE_POSSESSION__=function(p){return r.updateProfilePossession(p)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_ENCOUNTER_POSSESSION_DECOR__=function(p){return r.updateEncounterPossessionDecor(p)};" +
@@ -2014,7 +2020,7 @@
         "globalThis.__ST_HYPNOOS_UPDATE_MAP_EXTRA_CHAIN__=function(p){return r.updateMapExtraChain(p)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_LOCATION_RULE_RADAR__=function(p){return r.updateLocationRuleRadar(p)};" +
         "globalThis.SillyTavern={getContext:function(){return r.getContext()},getCurrentChatId:function(){return r.getCurrentChatId()}};" +
-        "var sourceMvu=r.getMvu();if(sourceMvu&&typeof sourceMvu.getMvuData==='function'&&typeof sourceMvu.replaceMvuData==='function'){globalThis.Mvu={events:sourceMvu.events||{},getMvuData:function(o){return r.readMvu('getMvuData',[option(o)])},replaceMvuData:function(m,o){return r.guardedMvu('replaceMvuData',[m,writeOption(o)])}};if(typeof sourceMvu.setMvuVariable==='function')globalThis.Mvu.setMvuVariable=function(){return r.guardedMvu('setMvuVariable',Array.prototype.slice.call(arguments))}}" +
+        "var sourceMvu=r.getMvu();if(sourceMvu&&typeof sourceMvu.getMvuData==='function'&&typeof sourceMvu.replaceMvuData==='function'){globalThis.Mvu={get events(){return sourceMvu.events||{}},getMvuData:function(o){return r.readMvu('getMvuData',[option(o)])},replaceMvuData:function(m,o){return r.guardedMvu('replaceMvuData',[m,writeOption(o)])}};if(typeof sourceMvu.setMvuVariable==='function')globalThis.Mvu.setMvuVariable=function(){return r.guardedMvu('setMvuVariable',Array.prototype.slice.call(arguments))}}" +
         "['eventOn','triggerSlash','getCharWorldbookNames','getWorldbook'].forEach(function(n){if(r.hasApi(n))globalThis[n]=function(){return r.callApi(n,Array.prototype.slice.call(arguments))}});" +
         "['createWorldbook','createWorldbookEntries','createWorldInfoEntry','replaceWorldbook','updateWorldbookWith','rebindCharWorldbooks','deleteWorldbook'].forEach(function(n){if(r.hasApi(n))globalThis[n]=function(){return r.guardedApi(n,Array.prototype.slice.call(arguments))}});" +
         "})();</scr" + "ipt>";
@@ -2063,7 +2069,7 @@
       if (shell && shell.isConnected) return;
       loadUiState();
       shell = hostDocument.createElement("div");
-      shell.id = "hypnoos-floating-phone-host";
+      shell.id = config.hostId;
       shell.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147481900;";
       shadow = shell.attachShadow({ mode: "open" });
       shadow.innerHTML = "<style>" + shellCss() + "</style>" +
@@ -2666,6 +2672,7 @@
         return "";
       },
       getRequestHeaders: hostRequestHeaders,
+      directSend: function (text) { return callApi("directSend", [text]); },
       phoneApi: phoneApi,
       notifyStages: notifyStages,
       renderActionFoldMarkers: scheduleActionFoldRender,
@@ -2787,11 +2794,11 @@
 
   function ensureRegistry(host) {
     try {
-      var existing = host.__ST_HYPNOOS_FLOATING_SINGLETON__;
+      var existing = host[config.singletonKey];
       if (existing && existing.revision === config.revision) return existing;
       if (existing && existing.destroy) existing.destroy();
       var created = createRegistry(host);
-      host.__ST_HYPNOOS_FLOATING_SINGLETON__ = created;
+      host[config.singletonKey] = created;
       return created;
     } catch (error) {
       console.error("[HypnoOS] 无法创建悬浮手机", error);
@@ -2899,7 +2906,7 @@
     if (!hostRegistry) return;
     hostRegistry.start();
     try {
-      host.dispatchEvent(new host.CustomEvent("HYPNOOS_FLOATING_REGISTRY_READY", { detail: { revision: config.revision } }));
+      host.dispatchEvent(new host.CustomEvent(config.registryEvent, { detail: { revision: config.revision } }));
     } catch (_) {}
     return;
   }
@@ -2925,19 +2932,19 @@
   }
   function registryReady() {
     try {
-      var registry = host.__ST_HYPNOOS_FLOATING_SINGLETON__;
+      var registry = host[config.singletonKey];
       if (registry && registry.revision === config.revision) attachStage(registry);
     } catch (_) {}
   }
   registryReady();
   if (!stageAttached) {
     root.innerHTML = "<section class='stage'><div class='empty waiting'>酒馆助手正在启动悬浮手机与暂存队列…</div></section>";
-    try { host.addEventListener("HYPNOOS_FLOATING_REGISTRY_READY", registryReady); } catch (_) {}
+    try { host.addEventListener(config.registryEvent, registryReady); } catch (_) {}
   }
 
   window.addEventListener("pagehide", function () {
-    try { host.removeEventListener("HYPNOOS_FLOATING_REGISTRY_READY", registryReady); } catch (_) {}
+    try { host.removeEventListener(config.registryEvent, registryReady); } catch (_) {}
     try { unsubscribe(); } catch (_) {}
-    try { host.__ST_HYPNOOS_FLOATING_SINGLETON__?.unregister?.(ownMessageId, token); } catch (_) {}
+    try { host[config.singletonKey]?.unregister?.(ownMessageId, token); } catch (_) {}
   }, { once: true });
 })();

@@ -2472,6 +2472,40 @@ html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{
       console.info("[HypnoOS] 已记录APP操作", block);
       return false;
     };
+    window.__ST_SEND_OPERATION_DIRECTLY__ = async () => {
+      pruneExpiredWorkOperationsIfReady();
+      const block = buildPendingOperationText();
+      if (!block) {
+        emitOperationQueueChanged();
+        return false;
+      }
+      const input = findOperationInput();
+      if (input && shouldWarnDuplicateOperation(input)) {
+        const proceed = await showOperationDuplicateWarning();
+        if (!proceed) return false;
+      }
+      let sent = false;
+      try {
+        if (typeof globalThis.__ST_HYPNOOS_DIRECT_SEND__ === "function") {
+          sent = Boolean(await globalThis.__ST_HYPNOOS_DIRECT_SEND__(block));
+        }
+      } catch (error) {
+        console.warn("[HypnoOS] 宿主直接发送失败，尝试发送按钮回退", error);
+      }
+      if (!sent && input) {
+        writeOperationBlockToInput(input, block);
+        const sendButton = input.ownerDocument?.querySelector?.("#send_but");
+        if (sendButton && !sendButton.disabled && sendButton.getAttribute("aria-disabled") !== "true") {
+          sendButton.click();
+          sent = true;
+        }
+      }
+      if (!sent) return false;
+      try { globalThis.__HYPNOOS_MARK_SENT_REWARD_OPERATIONS__?.(window.__ST_OPERATION_INPUT_LOG__); } catch {}
+      if (!window.__ST_READ_OPERATION_KEEP_AFTER_FLUSH__?.()) clearOperationInputLog();
+      else emitOperationQueueChanged();
+      return true;
+    };
   </script><script type="module">import * as z from "/public/vendor/zod.mjs";
 import _ from "/public/vendor/lodash.mjs";
 import $ from "/public/vendor/jquery.mjs";
@@ -5328,6 +5362,7 @@ label.st-encounter-role-image-slot-preview{cursor:pointer}
 .st-operation-panel-actions{flex:0 0 auto;padding:9px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr;gap:7px}
 .st-operation-panel-actions button{height:34px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.07);color:rgba(226,232,240,.88);font-size:11px;font-weight:900;cursor:pointer}
 .st-operation-panel-actions button.primary{background:linear-gradient(135deg,#8b5cf6,#ec4899);border-color:rgba(255,255,255,.18);color:white;box-shadow:0 10px 22px rgba(131,24,67,.22)}
+.st-operation-panel-actions .st-operation-direct-send{grid-column:1/-1}
 .st-operation-panel-actions button.danger{border-color:rgba(244,63,94,.25);background:rgba(244,63,94,.12);color:#fecdd3}
 .st-operation-panel-actions button:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;filter:grayscale(.35)}
 .st-operation-panel-actions button:not(:disabled):active{transform:scale(.98)}
@@ -7967,15 +8002,15 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     } catch {}
     if (normalized !== "encounter") {
       try { globalThis.__ST_HYPNOOS_UPDATE_ENCOUNTER_POSSESSION_DECOR__?.(null); } catch {}
-      try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateEncounterPossessionDecor?.(null); } catch {}
+      try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateEncounterPossessionDecor?.(null); } catch {}
     }
     if (normalized !== "work") {
       try { globalThis.__ST_HYPNOOS_UPDATE_WORK_LEVER__?.(null); } catch {}
-      try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateWorkLever?.(null); } catch {}
+      try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateWorkLever?.(null); } catch {}
     }
     if (normalized !== "city-map" && normalized !== "campus-map") {
       try { globalThis.__ST_HYPNOOS_UPDATE_MAP_EXTRA_CHAIN__?.(null); } catch {}
-      try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateMapExtraChain?.(null); } catch {}
+      try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateMapExtraChain?.(null); } catch {}
     }
   }
 
@@ -7992,13 +8027,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     try { globalThis.__ST_HYPNOOS_UPDATE_PROFILE_NEIGHBORS__?.(null); } catch {}
     try { globalThis.__ST_HYPNOOS_UPDATE_PROFILE_POSSESSION__?.(null); } catch {}
     try { globalThis.__ST_HYPNOOS_UPDATE_ENCOUNTER_POSSESSION_DECOR__?.(null); } catch {}
-    try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateEncounterPossessionDecor?.(null); } catch {}
+    try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateEncounterPossessionDecor?.(null); } catch {}
     try { globalThis.__ST_HYPNOOS_UPDATE_WORK_LEVER__?.(null); } catch {}
-    try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateWorkLever?.(null); } catch {}
+    try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateWorkLever?.(null); } catch {}
     try { globalThis.__ST_HYPNOOS_UPDATE_MAP_EXTRA_CHAIN__?.(null); } catch {}
-    try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateMapExtraChain?.(null); } catch {}
+    try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateMapExtraChain?.(null); } catch {}
     try { globalThis.__ST_HYPNOOS_UPDATE_LOCATION_RULE_RADAR__?.({ visible: false, immediate: true }); } catch {}
-    try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateLocationRuleRadar?.({ visible: false, immediate: true }); } catch {}
+    try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateLocationRuleRadar?.({ visible: false, immediate: true }); } catch {}
+    removeReactChrome(root);
+    if (root?.dataset) {
+      delete root.dataset.stReactIslandApp;
+      delete root.dataset.stReactIslandMode;
+    }
     root?.classList?.remove?.("st-rule-radar-open");
     root?.parentElement?.classList?.remove?.("st-rule-radar-stage");
     document.querySelectorAll?.("body > .st-location-rule-radar-bridge").forEach((bridge) => removeLocationRuleRadarBridge(bridge));
@@ -22079,7 +22119,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function updateWorkLeverBridge(payload) {
     try { globalThis.__ST_HYPNOOS_UPDATE_WORK_LEVER__?.(payload); } catch {}
-    try { window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateWorkLever?.(payload); } catch {}
+    try { globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateWorkLever?.(payload); } catch {}
   }
 
   function workLeverBridgePayload(page, pulling = false) {
@@ -31356,7 +31396,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function encounterFloatingRegistry() {
     try {
       return window.__ST_HYPNOOS_FLOATING_REGISTRY__
-        || window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__
+        || globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__
         || null;
     } catch {
       return null;
@@ -34948,7 +34988,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       }
     } catch {}
     try {
-      const update = window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__?.updateMapExtraChain;
+      const update = globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__?.updateMapExtraChain;
       if (typeof update === "function") return update(payload) !== false;
     } catch {}
     return false;
@@ -39541,9 +39581,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     let registry = null;
     try {
-      registry = window.parent?.__ST_HYPNOOS_FLOATING_SINGLETON__
-        || window.top?.__ST_HYPNOOS_FLOATING_SINGLETON__
-        || globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__;
+      registry = globalThis.__ST_HYPNOOS_FLOATING_REGISTRY__;
     } catch {}
     if (typeof registry?.getRequestHeaders === "function") return await registry.getRequestHeaders();
     throw new Error("无法从 SillyTavern.getContext() 取得同源请求头。");
@@ -40693,6 +40731,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '<button type="button" data-operation-panel-action="clear" ' + (hasContent ? "" : "disabled") + '>清空</button>' +
         (lockedCount ? '<button class="danger" type="button" data-operation-panel-action="force-clear">解锁清空</button>' : '') +
         '<button class="primary" type="button" data-operation-panel-action="flush" ' + (hasContent ? "" : "disabled") + '>写入输入框</button>' +
+        '<button class="primary st-operation-direct-send" type="button" data-operation-panel-action="direct-send" ' + (hasContent ? "" : "disabled") + '>直接发送</button>' +
       '</div>';
     syncOperationFloatBall();
   }
@@ -40706,7 +40745,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       writeOperationPanelNote(noteInput.value, { emit: false });
       const count = pendingOperationCount();
       const hasContent = count > 0 || Boolean(noteInput.value.trim());
-      panel.querySelectorAll('[data-operation-panel-action="clear"],[data-operation-panel-action="flush"]').forEach((button) => {
+      panel.querySelectorAll('[data-operation-panel-action="clear"],[data-operation-panel-action="flush"],[data-operation-panel-action="direct-send"]').forEach((button) => {
         button.disabled = !hasContent;
       });
       const badge = panel.querySelector(".st-operation-count-pill");
@@ -40771,6 +40810,16 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         actionButton.disabled = true;
         try {
           await window.__ST_FLUSH_OPERATION_TO_INPUT__?.();
+        } finally {
+          panel.dataset.signature = "";
+          updateOperationSidePanel();
+        }
+        return;
+      }
+      if (action === "direct-send") {
+        actionButton.disabled = true;
+        try {
+          await window.__ST_SEND_OPERATION_DIRECTLY__?.();
         } finally {
           panel.dataset.signature = "";
           updateOperationSidePanel();

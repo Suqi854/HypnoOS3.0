@@ -7,6 +7,8 @@ export const UI_BASELINE = Object.freeze({
   source: 'HApp5 fixed 4.3 webview artifact',
   upstreamCommit: 'db71f7715f86aa2be0210c1602843c66c2792139',
   artifactSha256: '303ff97170e8117e8b111070907ac67c720e5f508998db4f0560cc9b58126fd4',
+  approvedRuntimeVersion: '0.6.3',
+  approvedRuntimeUiSha256: '2c1f623192ac13d61bdf0036cd20ded99716e07ce582c97d28b356fa70c49418',
 });
 
 export const SCHEMA_IDS = Object.freeze({

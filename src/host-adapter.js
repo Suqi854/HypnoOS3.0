@@ -5,6 +5,62 @@ function findContext() {
   try { return globalThis.SillyTavern?.getContext?.() || null; } catch { return null; }
 }
 
+function sameOriginWindows() {
+  const result = [];
+  const pending = [globalThis];
+  while (pending.length) {
+    const view = pending.shift();
+    if (!view || result.includes(view)) continue;
+    try {
+      if (!view.document) continue;
+      if (view.__ST_HYPNOOS_FLOATING_PHONE__) continue;
+      result.push(view);
+      for (const frame of view.document.querySelectorAll('iframe')) {
+        try { if (frame.contentWindow && !result.includes(frame.contentWindow)) pending.push(frame.contentWindow); } catch {}
+      }
+    } catch {}
+  }
+  return result;
+}
+
+function runtimeFunction(name) {
+  for (const view of sameOriginWindows()) {
+    try {
+      if (typeof view[name] === 'function') return { view, fn: view[name] };
+      if (typeof view.TavernHelper?.[name] === 'function') return { view: view.TavernHelper, fn: view.TavernHelper[name] };
+    } catch {}
+  }
+  return null;
+}
+
+function runtimeMvu() {
+  for (const view of sameOriginWindows()) {
+    try {
+      if (view.Mvu?.getMvuData && !view.__ST_HYPNOOS_FLOATING_PHONE__) return view.Mvu;
+    } catch {}
+  }
+  return null;
+}
+
+function usableObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function messageVariableSnapshot(message) {
+  if (!message || typeof message !== 'object') return null;
+  const swipe = Math.max(0, Number(message.swipe_id ?? message.swipeId) || 0);
+  const sources = [message.variables, message.mvu, message.stat_data, message.swipe_info?.[swipe]?.variables];
+  for (let value of sources) {
+    if (Array.isArray(value)) value = value[swipe] ?? value.at(-1);
+    if (usableObject(value) && !value.stat_data && !value.系统 && !value.角色) {
+      const selected = value[swipe] ?? value[String(swipe)];
+      if (usableObject(selected)) value = selected;
+    }
+    if (usableObject(value)) return value === message.stat_data ? { stat_data: value } : value;
+  }
+  return null;
+}
+
 export class HostAdapter {
   #disposers = [];
   #promptText = '';
@@ -72,6 +128,14 @@ export class HostAdapter {
     return true;
   }
 
+  async directSend(text) {
+    if (!this.setInput(text, { append: false })) return false;
+    const send = document.querySelector('#send_but');
+    if (!send || send.disabled || send.getAttribute('aria-disabled') === 'true') return false;
+    send.click();
+    return true;
+  }
+
   async generateRaw({ prompt, systemPrompt = '', jsonSchema = null, responseLength = 4096 }) {
     const generateRaw = this.context?.generateRaw;
     if (typeof generateRaw !== 'function') throw new Error('当前 SillyTavern 未提供 generateRaw');
@@ -82,7 +146,47 @@ export class HostAdapter {
     return this.context?.getWorldInfoNames?.() || [];
   }
 
+  async getCharacterWorldbookNames() {
+    const helper = runtimeFunction('getCharWorldbookNames');
+    if (helper) {
+      try {
+        const books = await Promise.resolve(helper.fn.call(helper.view, 'current'));
+        if (Array.isArray(books) && books.length) {
+          return { primary: String(books[0] || ''), additional: books.slice(1).map(String).filter(Boolean) };
+        }
+        if (usableObject(books)) {
+          const primary = String(books.primary || books.primary_world || books.world || books.name || '').trim();
+          const additional = Array.isArray(books.additional) ? books.additional.map(String).filter(Boolean) : [];
+          if (primary || additional.length) return { primary, additional: [...new Set(additional)] };
+        }
+      } catch {}
+    }
+    const context = this.context;
+    const character = context?.characters?.[context.characterId];
+    const primary = String(character?.data?.extensions?.world || '').trim();
+    const avatar = String(character?.avatar || '').replace(/\.[^.]+$/, '');
+    const charLore = context?.extensionSettings?.world_info?.charLore;
+    const additional = Array.isArray(charLore)
+      ? (charLore.find((entry) => String(entry?.name || '') === avatar)?.extraBooks || [])
+      : [];
+    const chat = String(context?.chatMetadata?.world_info || '').trim();
+    const embedded = !primary && character?.data?.character_book
+      ? `__hypnoos_embedded__:${String(character.data.character_book.name || character.name || '角色卡世界书')}`
+      : '';
+    return {
+      primary: primary || embedded,
+      additional: [...new Set([...additional.map(String), ...(chat ? [chat] : [])].filter(Boolean))],
+    };
+  }
+
   loadWorldbook(name) {
+    if (String(name || '').startsWith('__hypnoos_embedded__:')) {
+      const context = this.context;
+      const character = context?.characters?.[context.characterId];
+      const embedded = character?.data?.character_book;
+      if (!embedded) throw new Error('当前角色没有内嵌世界书');
+      return context?.convertCharacterBook?.(clone(embedded)) || clone(embedded);
+    }
     const fn = this.context?.loadWorldInfo;
     if (!fn) throw new Error('世界书读取接口不可用');
     return fn(name);
@@ -119,13 +223,54 @@ export class HostAdapter {
 
   async readOptionalRuntimeState() {
     const snapshots = [];
-    if (typeof globalThis.getVariables === 'function') {
-      try { snapshots.push({ source: 'tavern-helper', value: globalThis.getVariables({ type: 'chat' }) }); } catch {}
+    const latest = this.latestMessageId();
+    for (const option of [{ type: 'message', message_id: latest }, { type: 'message', message_id: 'latest' }, { type: 'chat' }]) {
+      try {
+        const value = await Promise.resolve(this.readVariables(option));
+        if (usableObject(value)) snapshots.push({ source: `tavern-helper:${option.type}`, value });
+      } catch {}
+      try {
+        const value = await Promise.resolve(this.readMvu(option));
+        if (usableObject(value)) snapshots.push({ source: `mvu:${option.type}`, value });
+      } catch {}
     }
-    if (globalThis.Mvu?.getMvuData) {
-      try { snapshots.push({ source: 'mvu', value: globalThis.Mvu.getMvuData({ type: 'chat' }) }); } catch {}
-    }
+    const message = this.context?.chat?.[latest];
+    const messageSnapshot = messageVariableSnapshot(message);
+    if (messageSnapshot) snapshots.push({ source: 'message', value: messageSnapshot });
     return snapshots;
+  }
+
+  readVariables(option = { type: 'message', message_id: 'latest' }) {
+    const found = runtimeFunction('getVariables');
+    if (found) return found.fn.call(found.view, option);
+    if (option?.type === 'message') {
+      const chat = this.context?.chat;
+      const id = option.message_id === 'latest' ? (chat?.length || 1) - 1 : Number(option.message_id);
+      const message = Array.isArray(chat) ? chat[id] : null;
+      return messageVariableSnapshot(message);
+    }
+    return null;
+  }
+
+  updateVariablesWith(updater, option = { type: 'message', message_id: 'latest' }) {
+    const found = runtimeFunction('updateVariablesWith');
+    if (!found) return false;
+    return found.fn.call(found.view, updater, option);
+  }
+
+  readMvu(option = { type: 'message', message_id: 'latest' }) {
+    const mvu = runtimeMvu();
+    return mvu?.getMvuData?.(option) ?? this.readVariables(option);
+  }
+
+  async replaceMvuData(value, option = { type: 'message', message_id: 'latest' }) {
+    const mvu = runtimeMvu();
+    if (!mvu?.replaceMvuData) return false;
+    return mvu.replaceMvuData(value, option);
+  }
+
+  getMvuEvents() {
+    return runtimeMvu()?.events || {};
   }
 
   async writeOptionalRuntimeState(legacyVariables, settings) {

@@ -56,7 +56,7 @@ class Runtime {
 
   hideControl() {
     this.control.hidden = true;
-    document.querySelector('#hypnoos-floating-phone-host')?.shadowRoot?.querySelector('.launcher')?.focus();
+    document.querySelector('#hypnoos3-extension-floating-phone-host')?.shadowRoot?.querySelector('.launcher')?.focus();
   }
 
   destroy() {

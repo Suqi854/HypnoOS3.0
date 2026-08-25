@@ -17,11 +17,13 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === 'fe6cb3ecde4b711ea3ba9e594f6e33069bfe0d7dbf37887b6d1f21a9c738c716', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '2c1f623192ac13d61bdf0036cd20ded99716e07ce582c97d28b356fa70c49418', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
 expect(uiText.includes('玩家本轮输入'), '本轮输入应用没有采用玩家输入合同');
+expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
+expect(uiText.includes('removeReactChrome(root)'), '切换内部应用时没有清理旧 React 顶栏');
 expect(uiText.includes('#app>.w-full.flex.items-center.justify-center.p-2>div:first-child'), '手机前端缺少重复机壳消除规则');
 expect(!removedFeaturePattern.test(uiText), '手机前端不得残留已移除功能的运行代码');
 const floatingHost = await readFile(new URL('public/floating-bootstrap.js', root), 'utf8');
@@ -31,8 +33,16 @@ for (const marker of ['data-phone-drag', 'pet-character-toggle', 'sidecar', 'lau
 expect(floatingHost.includes("scrolling='no'"), '手机 iframe 必须关闭文档滚动条');
 expect(!floatingHost.includes('0 0 0 6px rgba(17,12,30,.72)'), '悬浮宿主仍包含额外 6px 黑色描边');
 expect(!removedFeaturePattern.test(floatingHost), '悬浮宿主不得残留已移除功能的按钮、同步或渲染代码');
+expect(floatingHost.includes('config.singletonKey'), '悬浮宿主没有使用可配置独立单例键');
 const extensionSource = await readFile(new URL('src/extension.js', root), 'utf8');
 expect(!extensionSource.includes('hypnoos3-launcher'), '不得重新引入自制 H 启动器');
+const floatingHostSource = await readFile(new URL('src/floating-host.js', root), 'utf8');
+expect(floatingHostSource.includes('__HYPNOOS3_EXTENSION_FLOATING_SINGLETON__'), '插件没有独立于4.3脚本的单例命名空间');
+expect(floatingHostSource.includes('hypnoos3-extension-floating-phone-host'), '插件没有独立于4.3脚本的宿主节点');
+expect(floatingHostSource.includes('directSend(text)'), '插件宿主缺少直接发送桥');
+const hostAdapterSource = await readFile(new URL('src/host-adapter.js', root), 'utf8');
+expect(hostAdapterSource.includes('getCharacterWorldbookNames()'), '宿主适配器缺少当前角色世界书解析');
+expect(hostAdapterSource.includes("{ type: 'message', message_id: 'latest' }"), '宿主适配器没有读取最新楼层变量');
 
 async function files(dir) {
   const result = [];
