@@ -69,7 +69,7 @@ async function openPhone(viewport, screenshotPrefix) {
         globalThis.__hypnoosQaHostGenerateRawPayload = options;
         if (String(options?.systemPrompt || '').includes('HypnoOS人物档案提取器')) {
           return JSON.stringify({ roles: [
-            { name: 'QA女性', gender: '女', age: '19', occupation: '学生会成员', height: '165cm', summary: '学生会成员，活跃于校园事务。' },
+            { name: 'QA女性', gender: '女', age: '19', occupation: '学生会成员', height: '165cm', summary: '学生会成员，活跃于校园事务。', triggers: [{ trigger: '晚安', hypnotist: '{{user}}', effect: '听见催眠者说出扳机词后，安静等待下一条指令。' }] },
             { name: 'QA男性', gender: '男', occupation: '教师', summary: '负责校园课程的教师。' },
           ] });
         }
@@ -361,6 +361,17 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.waitForSelector('.st-profile-app');
   assert.match(await frame.locator('.st-profile-app').textContent(), /档案/);
   assert.match(await frame.locator('.st-profile-app').textContent(), /QA女性/);
+  await frame.locator('[data-profile-desk-role="QA女性"]').click();
+  await frame.locator('[data-profile-action="toggle-tab-group"]').click();
+  await frame.locator('[data-profile-action="effects"]').click();
+  const triggerCard = frame.locator('.st-trigger-card').first();
+  await triggerCard.waitFor();
+  assert.match(await triggerCard.innerText(), /扳机\s*晚安/);
+  assert.match(await triggerCard.innerText(), /催眠者\s*\{\{user\}\}/);
+  assert.match(await triggerCard.innerText(), /效果\s*听见催眠者说出扳机词/);
+  assert.equal(await frame.locator('.st-person-photo-tabs-wrap').getAttribute('data-profile-nav-set'), 'confidential');
+  assert.match(await frame.locator('[data-profile-action="effects"]').evaluate((node) => getComputedStyle(node, '::after').backgroundImage), /gradient/i);
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-profile-effects-trigger.png`, fullPage: true });
   await frame.locator('.st-profile-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
@@ -581,7 +592,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.8-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.8-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.9-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.9-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

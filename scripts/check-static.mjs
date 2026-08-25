@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '0b512e09f0f23265ee8f9341c0fab919dc650b03831d758d88a056bf783f7742', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === 'd66b755375766d6bd222122ea9a80639b8ad67d66756baae42accfd2c4260a2e', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -27,6 +27,10 @@ expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺�
 expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
 expect(uiText.includes('data-information-action="refresh-format"') && uiText.includes('st-information-feedback'), '信息应用缺少按键反馈');
 expect(uiText.includes('data-profile-gender-correction'), '人物档案缺少手动性别修正选择框');
+expect(uiText.includes('declaredProfilePhotoSlots') && uiText.includes('roleData.portrait'), '人物档案没有读取头像或立绘兼容字段');
+expect(uiText.includes('normalizeHypnosisTriggerEntries') && uiText.includes('renderHypnosisTriggerPanel(roleData)'), '人物档案缺少催眠扳机数据或效果页展示');
+expect(uiText.includes('"催眠扳机": hypnosisTriggers') && uiText.includes('每个扳机词只对应一个催眠者和一个效果'), '世界书档案导入缺少一对一催眠扳机合同');
+expect(uiText.includes('.st-person-tabs-left .st-person-tab::after{clip-path:polygon') && uiText.includes('.st-person-tab::after{inset:3px;background:#f4efe6}'), '档案页签没有使用内置剪贴箭头外观');
 expect(uiText.includes('const importedRoles = readImportedProfileWorldbookRoles();') && uiText.includes('return { ...importedRoles, ...adaptiveWorldbookRoleCache, ...mvuRoles };'), '催眠目标角色源没有合并持久化档案与MVU变量');
 expect(uiText.includes('return favorites.concat(female, male);'), '角色选择没有按喜欢、女性、男性排序');
 expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');

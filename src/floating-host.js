@@ -54,7 +54,7 @@ export class FloatingHost {
     script.dataset.hostId = HOST_ID;
     script.dataset.registryEvent = 'HYPNOOS3_EXTENSION_FLOATING_REGISTRY_READY';
     script.dataset.storageKey = 'hypnoos3.extension.floatingPhone.ui.v1';
-    script.dataset.revision = 'hypnoos3-0.7.8';
+    script.dataset.revision = 'hypnoos3-0.7.9';
     script.dataset.mode = 'host';
     script.async = false;
     document.head.append(script);
