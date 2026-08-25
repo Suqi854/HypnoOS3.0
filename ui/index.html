@@ -20901,6 +20901,15 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     { id: "private-errand", threshold: 200, title: "高端代办", place: "会员制委托", wage: 250000, shachiku: 0, chance: 0.56, detail: "私人委托招可靠代办，内容包括预约排队、取送物品、陪同处理琐事和临时协调。报酬高但要求守口如瓶、会看气氛、不要追问委托人的隐私。" }
   ];
 
+  function activeWorkJobs() {
+    const records = adaptiveRecordsSync("work");
+    if (!records.length) return ST_WORK_JOBS;
+    return ST_WORK_JOBS.map((job, index) => {
+      const item = records[index % records.length];
+      return { ...job, title: item.title || job.title, place: item.meta || job.place, detail: item.summary || job.detail };
+    });
+  }
+
   function workNumber(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -20930,14 +20939,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     try {
       const parsed = JSON.parse(localStorage.getItem(workUiStorageKey()) || "{}");
       const id = String(parsed?.selectedJobId || "");
-      return ST_WORK_JOBS.some((job) => job.id === id) ? id : ST_WORK_JOBS[0].id;
+      return activeWorkJobs().some((job) => job.id === id) ? id : activeWorkJobs()[0].id;
     } catch {
-      return ST_WORK_JOBS[0].id;
+      return activeWorkJobs()[0].id;
     }
   }
 
   function writeWorkSelectedJobId(jobId) {
-    const id = ST_WORK_JOBS.some((job) => job.id === jobId) ? jobId : ST_WORK_JOBS[0].id;
+    const id = activeWorkJobs().some((job) => job.id === jobId) ? jobId : activeWorkJobs()[0].id;
     try {
       localStorage.setItem(workUiStorageKey(), JSON.stringify({ version: 1, selectedJobId: id }));
     } catch {}
@@ -21901,7 +21910,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	  function renderWorkTimeDialog(page) {
 	    const jobId = String(page?.dataset?.workTimeJob || "");
 	    if (!jobId) return "";
-	    const job = ST_WORK_JOBS.find((item) => item.id === jobId);
+    const job = activeWorkJobs().find((item) => item.id === jobId);
 	    if (!job) return "";
 	    const group = page.dataset.workTimeDateGroupName || ("st-work-time-date-" + Math.random().toString(36).slice(2, 9));
 	    page.dataset.workTimeDateGroupName = group;
@@ -21951,7 +21960,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
 	  function updateWorkTimeDialogState(page) {
 	    const info = workSelectedClockInfo(page);
-	    const job = ST_WORK_JOBS.find((item) => item.id === String(page?.dataset?.workTimeJob || ""));
+    const job = activeWorkJobs().find((item) => item.id === String(page?.dataset?.workTimeJob || ""));
 	    const clock = { dateText: info.dateText, timeText: info.timeText, source: info.source, selectionRule: info.selectionRule };
 	    const timingInfo = workStartTimingInfo(clock);
 	    const timeInfo = workCurrentTimeInfo(6, clock);
@@ -22003,7 +22012,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	      });
 	    });
 	    page.querySelector("[data-work-time-confirm]")?.addEventListener("click", async () => {
-	      const job = ST_WORK_JOBS.find((item) => item.id === String(page.dataset.workTimeJob || ""));
+    const job = activeWorkJobs().find((item) => item.id === String(page.dataset.workTimeJob || ""));
 	      const state = updateWorkTimeDialogState(page);
 	      if (state.disabled) return;
 	      const button = page.querySelector("[data-work-time-confirm]");
@@ -22198,9 +22207,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function workFocusIndex(page) {
     const raw = Number(page?.dataset?.workFocusIndex);
-    if (Number.isFinite(raw)) return Math.max(0, Math.min(ST_WORK_JOBS.length - 1, Math.trunc(raw)));
+    if (Number.isFinite(raw)) return Math.max(0, Math.min(activeWorkJobs().length - 1, Math.trunc(raw)));
     const storedId = readWorkSelectedJobId();
-    const storedIndex = ST_WORK_JOBS.findIndex((job) => job.id === storedId);
+    const storedIndex = activeWorkJobs().findIndex((job) => job.id === storedId);
     return storedIndex >= 0 ? storedIndex : 0;
   }
 
@@ -22245,7 +22254,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function triggerWorkRoll(page) {
     if (!page?.isConnected || page.dataset.workRolling === "1") return false;
     const currentIndex = workFocusIndex(page);
-    const nextIndex = (currentIndex + 1) % ST_WORK_JOBS.length;
+    const nextIndex = (currentIndex + 1) % activeWorkJobs().length;
     page.dataset.workRolling = "1";
     page.querySelector(".st-work-machine")?.classList.add("is-rolling");
     updateWorkLeverBridge(workLeverBridgePayload(page, true));
@@ -22253,7 +22262,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     page.__stWorkRollTimer = window.setTimeout(() => {
       if (!page.isConnected) return;
       page.dataset.workFocusIndex = String(nextIndex);
-      writeWorkSelectedJobId(ST_WORK_JOBS[nextIndex].id);
+    writeWorkSelectedJobId(activeWorkJobs()[nextIndex].id);
       delete page.dataset.workRolling;
       updateWorkLeverBridge(workLeverBridgePayload(page, false));
       renderWorkPage(page);
@@ -22270,8 +22279,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     readWorkLayerRoll();
     const timingInfo = workStartTimingInfo();
     const focusIndex = workFocusIndex(page);
-    const focusedJob = ST_WORK_JOBS[focusIndex] || ST_WORK_JOBS[0];
-    const nextIndex = (focusIndex + 1) % ST_WORK_JOBS.length;
+    const focusedJob = activeWorkJobs()[focusIndex] || activeWorkJobs()[0];
+    const nextIndex = (focusIndex + 1) % activeWorkJobs().length;
     const workOptions = { shachiku, pendingWork, timingInfo };
     writeWorkSelectedJobId(focusedJob.id);
     page.innerHTML =
@@ -22282,7 +22291,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
             '<span class="st-work-lever-mount" data-work-lever-mount aria-hidden="true"></span>' +
             '<div class="st-work-drum">' +
               '<div class="st-work-drum-card is-current">' + renderWorkNotice(focusedJob, focusIndex, workOptions) + '</div>' +
-              '<div class="st-work-drum-card is-next" aria-hidden="true">' + renderWorkNotice(ST_WORK_JOBS[nextIndex], nextIndex, workOptions) + '</div>' +
+        '<div class="st-work-drum-card is-next" aria-hidden="true">' + renderWorkNotice(activeWorkJobs()[nextIndex], nextIndex, workOptions) + '</div>' +
             '</div>' +
           '</section>' +
           '<section class="st-work-buff-note">' +
@@ -22310,7 +22319,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         event.preventDefault();
         event.stopPropagation();
         const jobId = String(button.getAttribute("data-work-job") || "");
-        const job = ST_WORK_JOBS.find((item) => item.id === jobId);
+      const job = activeWorkJobs().find((item) => item.id === jobId);
         if (!job) return;
         const currentValue = currentShachikuValue();
 	        if (hasPendingWorkOperation()) {
@@ -22339,7 +22348,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     page.className = "st-lite-app st-work-app";
     page.setAttribute("aria-label", "打工");
     root.appendChild(page);
-    page.dataset.workFocusIndex = String(Math.max(0, ST_WORK_JOBS.findIndex((job) => job.id === readWorkSelectedJobId())));
+    page.dataset.workFocusIndex = String(Math.max(0, activeWorkJobs().findIndex((job) => job.id === readWorkSelectedJobId())));
     const previousWorkLeverHandler = globalThis.__ST_HYPNOOS_WORK_LEVER_PULL__;
     globalThis.__ST_HYPNOOS_WORK_LEVER_PULL__ = () => triggerWorkRoll(page);
     renderWorkPage(page);
