@@ -20660,6 +20660,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const state = syncMonitorGatesWithRoleVariables(readMonitorState());
     syncMonitorDispatchCompletionReminder();
     const roles = getStatsRoles();
+    const adaptiveMonitor = adaptiveRecordsSync("monitor")[0] || null;
+    const monitorLocation = adaptiveMonitor?.title || "学校男厕";
+    const monitorSummary = adaptiveMonitor?.summary || "派遣内容可由用户自定义；留空时默认单人NSFW直播。";
     const stallUrl = stAssetUrl("maps/public-toilet-open-stall.png");
     const doorUrl = stAssetUrl("maps/public-toilet-closed-door.png");
     const thirds = [0, 33.3333333, 66.6666667];
@@ -20724,14 +20727,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       renderLiteHeader(page, { title: "监控", html: '<span class="st-app-island-dot is-camera"></span><strong>录制中 · ' + occupiedCount + '/3</strong>' }) +
       '<main class="st-lite-body">' +
         '<section class="st-lite-card st-monitor-card">' +
-          '<div class="st-monitor-stage" aria-label="学校男厕横向监控画面">' +
+          '<div class="st-monitor-stage" aria-label="' + escapeAttr(monitorLocation) + '横向监控画面">' +
             '<div class="st-monitor-map" aria-hidden="true">' + stallsHtml + '</div>' +
             blueBabyHtml +
             doorsHtml +
             hitsHtml +
           '</div>' +
           '<div class="st-monitor-gates">' + gatesHtml + '</div>' +
-          '<p class="st-monitor-note">派遣内容可由用户自定义；留空时默认单人NSFW直播。用户填写内容不会被前端改写，是否适合男厕门位及派遣能否成立交由 AI 按剧情判定。派遣期间角色不能与用户见面或接触，只能电话、远程或隔门交流；结束/取消后由 AI 结算已工作完整天数的星光点收益。</p>' +
+          '<p class="st-monitor-note"><strong>' + escapeHtml(monitorLocation) + '</strong>：' + escapeHtml(monitorSummary) + ' 用户填写内容不会被前端改写，派遣能否成立交由 AI 按剧情判定。派遣期间角色不能与用户见面或接触，只能电话、远程或隔门交流；结束/取消后由 AI 结算已工作完整天数的星光点收益。</p>' +
         '</section>' +
       '</main>';
     bindLiteHeader(page, () => renderMonitorPage(page));

@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '97814109daac3613862d7fceb0ac030096c0cf4dd615843d02fc0cb2de4f8047', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === 'e0f5973837fa68771ff89a3654552d8cec3a4329a39febef341aee08a75c9bbd', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -34,6 +34,7 @@ expect(uiText.includes('adaptiveTimetableBase()') && uiText.includes('adaptiveCa
 expect(uiText.includes('openMchanPage(tile)') && uiText.includes('adaptiveMchanState(defaultState())'), 'MC匿名版没有保持原UI并接入适配帖子');
 expect(uiText.includes('openRewardPage(null)') && uiText.includes('adaptiveRewardConfig()'), '任务与成就没有保持原UI并接入适配数据');
 expect(uiText.includes('openWorkPage(null)') && uiText.includes('activeWorkJobs()'), '打工没有保持原UI并接入适配数据');
+expect(uiText.includes('openMonitorPage(null)') && uiText.includes('adaptiveRecordsSync("monitor")[0]'), '监控没有保持原UI并接入适配数据');
 expect(!uiText.includes('openAdaptiveWorldApp(calendarTile, "calendar")'), '日历仍被统一卡片页覆盖');
 expect(uiText.includes('encounterBuiltInPackagesCache = [];') && uiText.includes('encounterResetLibraryFor070Once'), '邂逅内置角色包没有清空');
 for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {
