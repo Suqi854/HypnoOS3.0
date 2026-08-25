@@ -59,8 +59,10 @@ async function openPhone(viewport, screenshotPrefix) {
         { mes: '开场', is_user: false, name: 'QA角色' },
         { mes: '回复', is_user: false, name: 'QA角色', variables: { stat_data: { 系统: { MC能量: 66, MC能量上限: 80, 星光点: 12, 持有零花钱: 3456 }, 角色: { 测试角色: { 好感度: 12 } } } } },
       ],
-      getWorldInfoNames() { return ['qa-book']; },
-      loadWorldInfo(name) { return { entries: { 1: { uid: 1, comment: '[地点] QA测试地点', content: `${name}: 测试地点，包含图书馆和车站。` }, 2: { uid: 2, comment: '[角色] QA男性档案', content: '<QA男性人设>\n姓名: QA男性\n性别: 男\n职业: 教师' } } }; },
+      getWorldInfoNames() { return ['qa-book', 'qa-book-2']; },
+      loadWorldInfo(name) { return name === 'qa-book-2'
+        ? { entries: { 1: { uid: 11, comment: '[地点] QA海滨公园', content: `${name}: 海滨公园与商业街。` }, 2: { uid: 12, comment: '[角色] QA女性档案', content: '<QA女性人设>\n姓名: QA女性\n性别: 女\n年龄: 19\n职业: 学生会成员\n身高: 165cm' } } }
+        : { entries: { 1: { uid: 1, comment: '[地点] QA测试地点', content: `${name}: 测试地点，包含图书馆和车站。` }, 2: { uid: 2, comment: '[角色] QA男性档案', content: '<QA男性人设>\n姓名: QA男性\n性别: 男\n职业: 教师' } } }; },
       convertCharacterBook(value) { return value; },
       saveMetadataDebounced() {},
       setExtensionPrompt() {},
@@ -260,21 +262,36 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.locator('[aria-label="打开设置"]').click();
   const regionSelect = frame.locator('[data-settings-region]');
   assert.ok((await regionSelect.boundingBox()).height <= 40, '通用模板选择框没有缩小');
+  await frame.locator('.st-settings-profile-worldbooks-panel').scrollIntoViewIfNeeded();
+  const scrollBeforeRegionChange = await frame.locator('.st-settings-app .st-lite-body').evaluate((node) => node.scrollTop);
   await regionSelect.selectOption('auto');
+  const scrollAfterRegionChange = await frame.locator('.st-settings-app .st-lite-body').evaluate((node) => node.scrollTop);
+  assert.ok(scrollAfterRegionChange >= scrollBeforeRegionChange - 2, '设置点击后滚动位置回到了顶部');
   await frame.waitForSelector('[data-settings-worldbook]:not([disabled])');
-  await frame.locator('[data-settings-worldbook]').selectOption('qa-book');
-  await frame.getByRole('button', { name: '生成', exact: true }).click();
-  await frame.waitForFunction(() => document.body?.innerText?.includes('已完成世界书适配：qa-book'));
+  await frame.locator('[data-settings-profile-worldbooks]').selectOption(['qa-book', 'qa-book-2']);
+  await frame.getByRole('button', { name: '读取并导入档案' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('档案导入完成：女性 1 名，男性 1 名'));
+  await frame.locator('[data-settings-worldbook]').selectOption(['qa-book', 'qa-book-2']);
+  await frame.getByRole('button', { name: '合并生成', exact: true }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('已合并 2 本世界书完成适配'));
   const generatedProfile = await frame.evaluate(() => {
     const key = Object.keys(localStorage).find((item) => item.startsWith('hypnoos:world-adaptation:v1:'));
     return key ? JSON.parse(localStorage.getItem(key)) : null;
   });
   assert.ok(generatedProfile, '生成完成后没有保存结构化适配包');
   assert.equal(generatedProfile.schema, 'HypnoWorldAdaptation/v1');
+  assert.deepEqual(generatedProfile.worldbookNames, ['qa-book', 'qa-book-2']);
   assert.equal(generatedProfile.apps.timetable[0].title, '语文');
   await frame.locator('.st-settings-region-panel').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-worldbook-adapter-settings.png`, fullPage: true });
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开女性档案"]').click();
+  await frame.waitForSelector('.st-profile-app');
+  assert.match(await frame.locator('.st-profile-app').textContent(), /档案/);
+  assert.match(await frame.locator('.st-profile-app').textContent(), /QA女性/);
+  await frame.locator('.st-profile-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await frame.locator('[aria-label="打开地图"]').click();
@@ -323,6 +340,14 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[data-settings-cheat-key]').fill('123456');
+  await frame.getByRole('button', { name: '开启作弊模式' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('作弊模式未解锁：密钥错误'));
+  assert.doesNotMatch(await frame.locator('.st-settings-cheat-panel').innerText(), /已开启/);
+  await frame.locator('[data-settings-cheat-key]').fill('666666');
+  await frame.getByRole('button', { name: '开启作弊模式' }).click();
+  await frame.waitForSelector('.st-encounter-confirm');
+  await frame.getByRole('button', { name: '取消' }).click();
   await frame.getByRole('button', { name: '清空数据' }).click();
   await frame.getByRole('button', { name: '确认清空' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('已清空当前聊天的世界书适配数据'));
@@ -364,7 +389,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.2-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.2-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.3-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.3-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

@@ -4601,6 +4601,7 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-settings-button:disabled{opacity:.46;cursor:not-allowed;filter:saturate(.6)}
 .st-settings-code{width:100%;min-height:96px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:rgba(2,6,23,.54);color:#dbeafe;outline:none;padding:9px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;line-height:1.45;resize:vertical}
 .st-settings-region-select{width:100%;height:34px;min-height:34px;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:0 9px;font-size:10px;font-weight:800;outline:none}
+.st-settings-worldbook-multi{height:112px;min-height:112px;padding:5px 7px}.st-settings-worldbook-multi option{padding:6px;border-radius:5px}.st-settings-cheat-key{width:100%;min-height:38px;height:38px;margin:7px 0 10px;padding:0 10px;border:1px solid rgba(148,163,184,.28);border-radius:9px;background:#111827;color:#f8fafc;font-size:12px}
 .st-settings-region-fields{display:grid;gap:8px;margin-top:8px}.st-settings-region-fields label{display:grid;gap:5px;color:#cbd5e1;font-size:10px;font-weight:800}
 .st-settings-file{width:100%;min-width:0;border:1px dashed rgba(148,163,184,.24);border-radius:9px;background:rgba(255,255,255,.045);color:rgba(226,232,240,.76);padding:8px;font-size:10px}
 .st-settings-status{border:1px solid rgba(45,212,191,.16);border-radius:9px;background:rgba(20,184,166,.08);color:#99f6e4;padding:8px 9px;font-size:11px;line-height:1.45}
@@ -12614,9 +12615,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function adaptiveWorldbookRoleData(name, gender, entry) {
     const body = String(entry?.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const summary = body.slice(0, 240) || "来自当前角色世界书的人物档案。";
+    const field = (labels, fallback = "未记录") => {
+      const match = String(entry?.content || "").match(new RegExp("(?:" + labels + ")\\s*[:：=]\\s*([^\\n,，]{1,80})", "i"));
+      return String(match?.[1] || fallback).trim();
+    };
     return {
-      "衣着": { "头发": "以世界书与当前剧情为准", "面部": "以世界书与当前剧情为准", "上衣": "以世界书与当前剧情为准", "下衣": "以世界书与当前剧情为准" },
-      "信息": { "姓名": name, "性别": gender, "_年龄": "未记录", "社团或职业": "世界书角色", "身高": "未记录", "体重": "未记录", "三围": "未记录", "绰号": "", "绰号已认可": false, "世界书摘要": summary },
+      "衣着": { "头发": field("头发|发型|hair", "以世界书与当前剧情为准"), "面部": field("面部|容貌|face", "以世界书与当前剧情为准"), "上衣": field("上衣|服装|attire", "以世界书与当前剧情为准"), "下衣": field("下衣", "以世界书与当前剧情为准") },
+      "信息": { "姓名": name, "性别": gender, "_年龄": field("年龄|age"), "社团或职业": field("职业|身份|社团|occupation", "世界书角色"), "身高": field("身高|height"), "体重": field("体重|weight"), "三围": field("三围|measurement"), "绰号": "", "绰号已认可": false, "世界书摘要": summary },
       "状态": { "好感度": 0, "警戒度": 0, "服从度": 0, "性欲": 0, "快感值": 0, "是否派遣中": false },
       "事件": { "_事件记录": [], "至关重要记忆": [] },
       "敏感": {}, "效果": { "心理": {}, "临时催眠效果": {}, "永久催眠效果": {} }, "劣迹": {}, "改造": {}, "物品": { "持有": {} }, "子嗣": { "是否妊娠中": false, "生产数量": 0, "子嗣列表": {} },
@@ -12627,7 +12632,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   async function refreshAdaptiveWorldbookRoleCache(force = false) {
     const scope = roleFavoriteStorageScope();
     if (!force && adaptiveWorldbookRoleCacheScope === scope) return adaptiveWorldbookRoleCache;
-    const next = {};
+    const next = { ...readImportedProfileWorldbookRoles() };
     try {
       const result = await encounterReadCharacterWorldEntries({});
       for (const entry of Array.isArray(result?.entries) ? result.entries : []) {
@@ -12642,6 +12647,35 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     adaptiveWorldbookRoleCache = next;
     adaptiveWorldbookRoleCacheScope = scope;
     return next;
+  }
+
+  async function importProfileRolesFromWorldbooks(worldbookNames) {
+    const selected = normalizeWorldbookSelection(worldbookNames);
+    const books = await adaptiveReadWorldbooks(selected);
+    const roles = {};
+    const unknown = [];
+    for (const book of books) {
+      for (const entry of Array.isArray(book.entries) ? book.entries : []) {
+        if (!entry || entry.disable === true || entry.enabled === false) continue;
+        const gender = adaptiveWorldbookRoleGender(entry);
+        const name = adaptiveWorldbookRoleName(entry);
+        if (!name || /^(角色|人物|设定|档案)$/u.test(name)) continue;
+        if (!gender) { unknown.push(name); continue; }
+        if (!roles[name]) roles[name] = adaptiveWorldbookRoleData(name, gender, entry);
+        else {
+          const currentSummary = String(roles[name]?.信息?.世界书摘要 || "");
+          const incomingSummary = String(adaptiveWorldbookRoleData(name, gender, entry)?.信息?.世界书摘要 || "");
+          roles[name].信息.世界书摘要 = [currentSummary, incomingSummary].filter(Boolean).join("；").slice(0, 480);
+        }
+      }
+    }
+    const payload = { schema: "HypnoProfileWorldbooks/v1", worldbookNames: selected, importedAt: new Date().toISOString(), roles };
+    localStorage.setItem(profileWorldbookRolesKey(), JSON.stringify(payload));
+    writeProfileWorldbookSelections(selected);
+    adaptiveWorldbookRoleCache = { ...roles };
+    adaptiveWorldbookRoleCacheScope = roleFavoriteStorageScope();
+    window.dispatchEvent(new CustomEvent("HYPNOOS_PROFILE_WORLDBOOK_ROLES_CHANGED", { detail: { worldbookNames: selected, roleNames: Object.keys(roles) } }));
+    return { worldbookNames: selected, roles, unknown: [...new Set(unknown)] };
   }
 
   function getStatsRoles() {
@@ -19736,7 +19770,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       : "";
     page.dataset.profileSignature = personProfileSignature(page);
     page.innerHTML =
-      renderLiteHeader(page, { title: profileAppTitle(page), html: recordingIslandHtml() }) +
+      renderLiteHeader(page, { title: profileAppTitle(page), html: '<strong>档案</strong>' }) +
       '<main class="st-lite-body st-profile-body is-desk">' +
         (cards
           ? '<section class="st-profile-desk" aria-label="桌面人物档案">' + cards + '</section>'
@@ -19774,7 +19808,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       try { globalThis.__ST_HYPNOOS_UPDATE_PROFILE_POSSESSION__?.(null); } catch {}
       page.dataset.profileSignature = personProfileSignature(page);
       page.innerHTML =
-        renderLiteHeader(page, { title: profileAppTitle(page), html: recordingIslandHtml() }) +
+        renderLiteHeader(page, { title: profileAppTitle(page), html: '<strong>档案</strong>' }) +
         '<main class="st-lite-body st-profile-body is-desk">' +
           '<section class="st-profile-desk-empty">没有可显示的角色档案。</section>' +
         '</main>';
@@ -19923,7 +19957,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       };
     };
     page.innerHTML =
-      renderLiteHeader(page, { title: profileAppTitle(page), html: recordingIslandHtml() }) +
+      renderLiteHeader(page, { title: profileAppTitle(page), html: '<strong>档案</strong>' }) +
       '<main class="st-lite-body st-profile-body is-detail">' +
         '<section class="st-profile-detail-stage' + (navSet === "confidential" ? " is-confidential-nav" : "") + '">' +
           '<button class="st-person-desk-return" type="button" data-profile-action="desk" aria-label="回到档案桌面"><span aria-hidden="true">▦</span>桌面</button>' +
@@ -38777,7 +38811,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	  }
 
   const SETTINGS_CHEAT_MODE_STORAGE_PREFIX = "hypnoos.settings.cheatMode.v1:";
-  const SETTINGS_CHEAT_UNLOCK_TEXT = "不要在帖子点zany_face";
+  // 修改这里即可更换作弊模式密钥；不要把密钥写入世界书、导出包或日志。
+  const SETTINGS_CHEAT_UNLOCK_KEY = "666666";
 
   function settingsCheatModeStorageKey() {
     let scope = "global";
@@ -38894,9 +38929,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     });
   }
 
-  async function settingsToggleCheatMode(page, active) {
+  async function settingsToggleCheatMode(page, active, cheatKey = "") {
     if (!requireWritablePhoneFloor()) {
       page.dataset.settingsStatus = "历史楼层只读；切回当前楼后才能切换作弊模式。";
+      renderSettingsPage(page);
+      return;
+    }
+    if (active && String(cheatKey || "") !== SETTINGS_CHEAT_UNLOCK_KEY) {
+      page.dataset.settingsStatus = "作弊模式未解锁：密钥错误。";
       renderSettingsPage(page);
       return;
     }
@@ -38911,20 +38951,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       cancelText: "取消"
     });
     if (!confirmed) return;
-    if (active) {
-      const typed = await settingsTextPrompt(page, {
-        title: "输入解锁内容",
-        message: "请输入指定内容解锁作弊模式：\n\n" + SETTINGS_CHEAT_UNLOCK_TEXT,
-        placeholder: SETTINGS_CHEAT_UNLOCK_TEXT,
-        confirmText: "解锁",
-        cancelText: "取消"
-      });
-      if (String(typed || "") !== SETTINGS_CHEAT_UNLOCK_TEXT) {
-        page.dataset.settingsStatus = "作弊模式未解锁：输入内容不一致。";
-        renderSettingsPage(page);
-        return;
-      }
-    }
     page.dataset.settingsStatus = "正在" + action + "作弊模式并切换世界书...";
     renderSettingsPage(page);
     try {
@@ -39115,6 +39141,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   const ST_ADAPTIVE_REGION_KEY = "hypnoos:adaptive-region:v1";
   const ST_ADAPTIVE_SELECTED_WORLDBOOK_PREFIX = "hypnoos:adaptive-worldbook:v1";
   const ST_ADAPTIVE_GENERATED_PREFIX = "hypnoos:world-adaptation:v1";
+  const ST_PROFILE_WORLDBOOK_SELECTION_PREFIX = "hypnoos:profile-worldbooks:v1";
+  const ST_PROFILE_WORLDBOOK_ROLES_PREFIX = "hypnoos:profile-worldbook-roles:v1";
   const ST_ADAPTIVE_SCHEMA = "HypnoWorldAdaptation/v1";
   const ST_ADAPTIVE_APP_META = {
     map: { title: "地图", keywords: /地图|地点|场景|城市|学校|校舍|住宅|医院|商店|公园/u, action: "前往" },
@@ -39171,12 +39199,62 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     return ST_ADAPTIVE_GENERATED_PREFIX + ":" + adaptiveStorageScope();
   }
 
+  function normalizeWorldbookSelection(value) {
+    const list = Array.isArray(value) ? value : [value];
+    return [...new Set(list.map((name) => String(name || "").trim()).filter(Boolean))];
+  }
+
+  function readStoredWorldbookSelection(key) {
+    try {
+      const raw = String(localStorage.getItem(key) || "");
+      if (!raw) return [];
+      try { return normalizeWorldbookSelection(JSON.parse(raw)); } catch { return normalizeWorldbookSelection(raw); }
+    } catch { return []; }
+  }
+
+  function writeStoredWorldbookSelection(key, names) {
+    const normalized = normalizeWorldbookSelection(names);
+    try { localStorage.setItem(key, JSON.stringify(normalized)); } catch {}
+    return normalized;
+  }
+
+  function readAdaptiveSelectedWorldbooks() {
+    return readStoredWorldbookSelection(adaptiveSelectedWorldbookKey());
+  }
+
   function readAdaptiveSelectedWorldbook() {
-    try { return String(localStorage.getItem(adaptiveSelectedWorldbookKey()) || ""); } catch { return ""; }
+    return readAdaptiveSelectedWorldbooks()[0] || "";
+  }
+
+  function writeAdaptiveSelectedWorldbooks(names) {
+    return writeStoredWorldbookSelection(adaptiveSelectedWorldbookKey(), names);
   }
 
   function writeAdaptiveSelectedWorldbook(name) {
-    try { localStorage.setItem(adaptiveSelectedWorldbookKey(), String(name || "")); } catch {}
+    return writeAdaptiveSelectedWorldbooks([name]);
+  }
+
+  function profileWorldbookSelectionKey() {
+    return ST_PROFILE_WORLDBOOK_SELECTION_PREFIX + ":" + adaptiveStorageScope();
+  }
+
+  function profileWorldbookRolesKey() {
+    return ST_PROFILE_WORLDBOOK_ROLES_PREFIX + ":" + adaptiveStorageScope();
+  }
+
+  function readProfileWorldbookSelections() {
+    return readStoredWorldbookSelection(profileWorldbookSelectionKey());
+  }
+
+  function writeProfileWorldbookSelections(names) {
+    return writeStoredWorldbookSelection(profileWorldbookSelectionKey(), names);
+  }
+
+  function readImportedProfileWorldbookRoles() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(profileWorldbookRolesKey()) || "null");
+      return parsed?.roles && typeof parsed.roles === "object" && !Array.isArray(parsed.roles) ? parsed.roles : {};
+    } catch { return {}; }
   }
 
   function readAdaptiveGeneratedProfile() {
@@ -39211,7 +39289,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }).filter((item) => item.title || item.summary);
   }
 
-  function adaptiveNormalizeGeneratedPayload(payload, worldbookName, sourceHash) {
+  function adaptiveNormalizeGeneratedPayload(payload, worldbookNames, sourceHash) {
+    const names = normalizeWorldbookSelection(worldbookNames);
     const sourceApps = payload?.apps && typeof payload.apps === "object" ? payload.apps : {};
     const apps = {};
     for (const kind of Object.keys(ST_ADAPTIVE_APP_META)) apps[kind] = adaptiveNormalizeRecords(sourceApps[kind]);
@@ -39219,7 +39298,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (missing.length) throw new Error("模型未生成完整应用数据：" + missing.map((kind) => ST_ADAPTIVE_APP_META[kind].title).join("、"));
     return {
       schema: ST_ADAPTIVE_SCHEMA,
-      worldbookName: adaptiveCleanText(worldbookName, 120),
+      worldbookName: adaptiveCleanText(names.join(" + "), 240),
+      worldbookNames: names,
       sourceHash,
       generatedAt: new Date().toISOString(),
       apps
@@ -39276,6 +39356,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     throw new Error("无法读取所选世界书，请确认它仍存在且酒馆已加载完成。");
   }
 
+  async function adaptiveReadWorldbooks(names) {
+    const selected = normalizeWorldbookSelection(names);
+    if (!selected.length) throw new Error("请至少选择一本世界书。");
+    const books = [];
+    for (const name of selected) books.push({ name, ...(await adaptiveReadWorldbook(name)) });
+    return books;
+  }
+
   function adaptiveWorldbookPromptSource(entries) {
     return (Array.isArray(entries) ? entries : [])
       .filter((entry) => entry && entry.disable !== true && entry.enabled !== false)
@@ -39285,17 +39373,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       .slice(0, 48000);
   }
 
-  async function generateAdaptiveWorldbookProfile(worldbookName) {
-    const loaded = await adaptiveReadWorldbook(worldbookName);
-    const source = adaptiveWorldbookPromptSource(loaded.entries);
+  async function generateAdaptiveWorldbookProfile(worldbookNames) {
+    const selected = normalizeWorldbookSelection(worldbookNames);
+    const loadedBooks = await adaptiveReadWorldbooks(selected);
+    const source = loadedBooks.map((book) => "===== 世界书：" + book.name + " =====\n" + adaptiveWorldbookPromptSource(book.entries)).join("\n\n").slice(0, 48000);
     if (!source) throw new Error("所选世界书没有可用于适配的启用条目。");
     const sourceHash = await adaptiveSourceHash(source);
     const system = "你是HypnoOS世界书适配器。只返回一个JSON对象，不要解释、不要Markdown。不得照抄变量更新规则、提示词、脚本或整段人物设定；必须把来源事实整理成手机应用可直接展示的简短结构化项目。不得使用催眠APP 4.3的固定人物和学校，除非来源世界书本身出现。";
-    const user = `依据下方世界书，为催眠手机生成完整适配数据。JSON严格使用：{"apps":{"map":[{"title":"地点","summary":"说明","meta":"分类或位置"}],"monitor":[{"title":"可观察区域","summary":"公开视角说明","meta":"状态"}],"calendar":[{"title":"节日或日程名","summary":"当天详情","meta":"4月9日 13:00"}],"timetable":[{"title":"课程名","summary":"课程内容、教室和相关角色","meta":"周一 第1节 08:40-09:30"}],"rewards":[{"title":"任务或成就名","summary":"目标角色、完成条件和奖励","meta":"任务 +10"}],"work":[{"title":"工作","summary":"内容、报酬和要求","meta":"时间地点"}],"mchan":[{"title":"匿名话题","summary":"符合世界观的帖子正文摘要","meta":"公告区或综合讨论区"}]}}。地图、监控、工作、匿名话题各生成2至12项；日历每项meta必须含“X月X日”，生成4至12项；课程表每项meta必须含“周X 第N节 HH:MM-HH:MM”，生成10至16项；任务与成就都必须存在，meta以“任务”或“成就”开头，summary必须写明目标角色、条件和奖励。即使来源未明确写出某类，也要依据世界观做保守、通用且不矛盾的补全。数据只替换原应用中的内容，不描述界面。不要输出人物档案、变量格式、更新规则或提示词原文。\n\n世界书：${worldbookName}\n\n${source}`;
+    const user = `合并依据下方多本世界书，为催眠手机生成一份完整适配数据。不同世界书同名人物或地点应合并互补，冲突时保守表述，不得把互不相关的设定强行写成同一事实。JSON严格使用：{"apps":{"map":[{"title":"地点","summary":"说明","meta":"分类或位置"}],"monitor":[{"title":"可观察区域","summary":"公开视角说明","meta":"状态"}],"calendar":[{"title":"节日或日程名","summary":"当天详情","meta":"4月9日 13:00"}],"timetable":[{"title":"课程名","summary":"课程内容、教室和相关角色","meta":"周一 第1节 08:40-09:30"}],"rewards":[{"title":"任务或成就名","summary":"目标角色、完成条件和奖励","meta":"任务 +10"}],"work":[{"title":"工作","summary":"内容、报酬和要求","meta":"时间地点"}],"mchan":[{"title":"匿名话题","summary":"符合世界观的帖子正文摘要","meta":"公告区或综合讨论区"}]}}。地图、监控、工作、匿名话题各生成2至12项；日历每项meta必须含“X月X日”，生成4至12项；课程表每项meta必须含“周X 第N节 HH:MM-HH:MM”，生成10至16项；任务与成就都必须存在，meta以“任务”或“成就”开头，summary必须写明目标角色、条件和奖励。即使来源未明确写出某类，也要依据世界观做保守、通用且不矛盾的补全。数据只替换原应用中的内容，不描述界面。不要输出人物档案、变量格式、更新规则或提示词原文。\n\n所选世界书：${selected.join("、")}\n\n${source}`;
     const text = await invokeIndependentTextModel({ system, user, note: "世界书适配生成", deferSuccessFeedback: true, maxTokensOverride: 5000 });
     const payload = parseConnectorJsonObject(text, { requiredKeys: ["apps"], allowedKeys: ["apps"] });
-    const profile = adaptiveNormalizeGeneratedPayload(payload, worldbookName, sourceHash);
-    writeAdaptiveSelectedWorldbook(worldbookName);
+    const profile = adaptiveNormalizeGeneratedPayload(payload, selected, sourceHash);
+    writeAdaptiveSelectedWorldbooks(selected);
     writeAdaptiveRegion("auto");
     writeAdaptiveGeneratedProfile(profile);
     showIndependentConnectorFeedback("text", "success", "世界书适配内容已生成。");
@@ -39436,7 +39525,28 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const page = document.createElement("section"); page.className = "st-lite-app st-adaptive-world-app"; page.dataset.adaptiveKind = kind; page.setAttribute("aria-label", meta.title); root.appendChild(page); void renderAdaptiveWorldApp(page);
   }
 
+  function settingsDatasetSelection(page, key, fallback = []) {
+    try { return normalizeWorldbookSelection(JSON.parse(page?.dataset?.[key] || "[]")); } catch { return normalizeWorldbookSelection(fallback); }
+  }
+
+  function settingsWriteDatasetSelection(page, key, names) {
+    const selected = normalizeWorldbookSelection(names);
+    page.dataset[key] = JSON.stringify(selected);
+    return selected;
+  }
+
+  function settingsSelectedOptions(select) {
+    return normalizeWorldbookSelection(Array.from(select?.selectedOptions || []).map((option) => option.value));
+  }
+
+  function settingsWorldbookOptions(names, selectedNames) {
+    const selected = new Set(normalizeWorldbookSelection(selectedNames));
+    return [...new Set([...selected, ...normalizeWorldbookSelection(names)])].map((name) => '<option value="' + escapeHtml(name) + '" ' + (selected.has(name) ? "selected" : "") + '>' + escapeHtml(name) + '</option>').join("");
+  }
+
   function renderSettingsPage(page) {
+    const previousBody = page.querySelector(":scope > .st-lite-body");
+    const previousScrollTop = previousBody?.scrollTop || 0;
     const exportText = String(page.dataset.settingsExportText || "");
     const importText = String(page.dataset.settingsImportText || "");
     const status = String(page.dataset.settingsStatus || "");
@@ -39444,8 +39554,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const cheatActive = settingsCheatModeActive();
     const adaptiveMode = page.dataset.settingsAdaptiveMode || readAdaptiveRegion();
     const adaptiveWorldbooks = Array.isArray(page.__stAdaptiveWorldbooks) ? page.__stAdaptiveWorldbooks : [];
-    const adaptiveSelected = page.dataset.settingsAdaptiveWorldbook || readAdaptiveSelectedWorldbook();
-    const adaptiveOptions = [...new Set([adaptiveSelected, ...adaptiveWorldbooks].filter(Boolean))].map((name) => '<option value="' + escapeHtml(name) + '" ' + (name === adaptiveSelected ? "selected" : "") + '>' + escapeHtml(name) + '</option>').join("");
+    const adaptiveSelected = settingsDatasetSelection(page, "settingsAdaptiveWorldbooks", readAdaptiveSelectedWorldbooks());
+    const profileSelected = settingsDatasetSelection(page, "settingsProfileWorldbooks", readProfileWorldbookSelections());
+    const adaptiveOptions = settingsWorldbookOptions(adaptiveWorldbooks, adaptiveSelected);
+    const profileOptions = settingsWorldbookOptions(adaptiveWorldbooks, profileSelected);
     const settingsTab = page.dataset.settingsTab === "models" ? "models" : "general";
     const tabs = '<nav class="st-settings-tabs"><button type="button" data-settings-tab="general" class="' + (settingsTab === "general" ? "active" : "") + '">聊天与变量</button><button type="button" data-settings-tab="models" class="' + (settingsTab === "models" ? "active" : "") + '">模型插头</button></nav>';
     page.innerHTML =
@@ -39495,15 +39607,22 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
             '<button type="button" class="st-settings-button primary" data-settings-action="overwrite-line-worldbooks">覆盖当前阶段世界书</button>' +
           '</div>' +
         '</section>' +
+        '<section class="st-settings-panel st-settings-profile-worldbooks-panel">' +
+          '<h3>档案</h3>' +
+          '<p>可多选世界书，只读提取其中明确标注性别的人物并导入男女档案。导入后的统一角色资料会供监控、任务、邂逅等读取人物资料的应用使用；原世界书不会被修改。</p>' +
+          '<label>选择世界书<select class="st-settings-region-select st-settings-worldbook-multi" data-settings-profile-worldbooks multiple size="4" ' + (!profileOptions ? "disabled" : "") + '>' + (profileOptions || '<option disabled>' + (page.dataset.settingsAdaptiveWorldbooksLoading === "true" ? "正在读取世界书…" : "没有可选世界书") + '</option>') + '</select></label>' +
+          '<button type="button" class="st-settings-button primary" data-settings-action="import-profile-worldbooks" ' + (!profileSelected.length ? "disabled" : "") + '>读取并导入档案</button>' +
+        '</section>' +
         '<section class="st-settings-panel st-settings-region-panel">' +
           '<h3>通用适配模板</h3>' +
           '<p>中国版、日本版提供通用内容；选择“根据世界书自动生成”后，可指定世界书生成地图、课程表等应用的专用适配内容。原世界书不会被修改。</p>' +
           '<select class="st-settings-region-select" data-settings-region aria-label="选择通用适配模板"><option value="china" ' + (adaptiveMode === "china" ? "selected" : "") + '>中国版</option><option value="japan" ' + (adaptiveMode === "japan" ? "selected" : "") + '>日本版</option><option value="auto" ' + (adaptiveMode === "auto" ? "selected" : "") + '>根据世界书自动生成</option></select>' +
-          (adaptiveMode === "auto" ? '<div class="st-settings-region-fields"><label>选择世界书<select class="st-settings-region-select" data-settings-worldbook ' + (!adaptiveOptions ? "disabled" : "") + '><option value="">' + (page.dataset.settingsAdaptiveWorldbooksLoading === "true" ? "正在读取世界书…" : "请选择世界书") + '</option>' + adaptiveOptions + '</select></label><button type="button" class="st-settings-button primary" data-settings-action="generate-adaptive" ' + (!adaptiveSelected ? "disabled" : "") + '>生成</button></div>' : '<div class="st-settings-actions is-single"><button type="button" class="st-settings-button primary" data-settings-action="save-region">切换通用模板</button></div>') +
+          (adaptiveMode === "auto" ? '<div class="st-settings-region-fields"><label>选择世界书（可多选）<select class="st-settings-region-select st-settings-worldbook-multi" data-settings-worldbook multiple size="4" ' + (!adaptiveOptions ? "disabled" : "") + '>' + (adaptiveOptions || '<option disabled>' + (page.dataset.settingsAdaptiveWorldbooksLoading === "true" ? "正在读取世界书…" : "没有可选世界书") + '</option>') + '</select></label><button type="button" class="st-settings-button primary" data-settings-action="generate-adaptive" ' + (!adaptiveSelected.length ? "disabled" : "") + '>合并生成</button></div>' : '<div class="st-settings-actions is-single"><button type="button" class="st-settings-button primary" data-settings-action="save-region">切换通用模板</button></div>') +
         '</section>' +
         '<section class="st-settings-panel st-settings-cheat-panel ' + (cheatActive ? "is-active" : "") + '">' +
           '<h3>作弊模式</h3>' +
           '<p>当前状态：<strong>' + (cheatActive ? "已开启" : "未开启") + '</strong>。开启后会关闭《难度加大》并启用《作弊模式》；关闭则反向切回。它只加快好感/服从等成长，不应破坏人设、剧情线或前端条件。</p>' +
+          (!cheatActive ? '<label><span>开启密钥</span><input class="st-settings-code st-settings-cheat-key" type="password" data-settings-cheat-key autocomplete="off" inputmode="numeric" placeholder="请输入密钥"></label>' : '') +
           '<div class="st-settings-actions is-single">' +
             '<button type="button" class="st-settings-button ' + (cheatActive ? "danger" : "primary") + '" data-settings-action="' + (cheatActive ? "cheat-off" : "cheat-on") + '">' + (cheatActive ? "关闭作弊模式" : "开启作弊模式") + '</button>' +
           '</div>' +
@@ -39515,6 +39634,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '</section>'
         )) +
       '</main>';
+    const nextBody = page.querySelector(":scope > .st-lite-body");
+    if (nextBody && previousScrollTop > 0) nextBody.scrollTop = previousScrollTop;
     bindLiteHeader(page, () => renderSettingsPage(page));
     page.querySelectorAll("[data-settings-tab]").forEach((button) => {
       button.addEventListener("click", (event) => {
@@ -39530,8 +39651,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       renderSettingsPage(page);
     });
     page.querySelector('[data-settings-worldbook]')?.addEventListener("change", (event) => {
-      page.dataset.settingsAdaptiveWorldbook = String(event.target.value || "");
-      renderSettingsPage(page);
+      const selected = settingsWriteDatasetSelection(page, "settingsAdaptiveWorldbooks", settingsSelectedOptions(event.target));
+      const button = page.querySelector('[data-settings-action="generate-adaptive"]');
+      if (button) button.disabled = selected.length === 0;
+    });
+    page.querySelector('[data-settings-profile-worldbooks]')?.addEventListener("change", (event) => {
+      const selected = settingsWriteDatasetSelection(page, "settingsProfileWorldbooks", settingsSelectedOptions(event.target));
+      const button = page.querySelector('[data-settings-action="import-profile-worldbooks"]');
+      if (button) button.disabled = selected.length === 0;
     });
     page.querySelector('[data-settings-action="save-region"]')?.addEventListener("click", (event) => {
       settingsStopEvent(event);
@@ -39541,17 +39668,34 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     });
     page.querySelector('[data-settings-action="generate-adaptive"]')?.addEventListener("click", async (event) => {
       settingsStopEvent(event);
-      const worldbookName = String(page.dataset.settingsAdaptiveWorldbook || page.querySelector('[data-settings-worldbook]')?.value || "").trim();
-      if (!worldbookName) { page.dataset.settingsStatus = "请先选择世界书。"; renderSettingsPage(page); return; }
-      page.dataset.settingsStatus = "正在读取世界书并生成地图、课程表等应用内容…";
+      const worldbookNames = settingsDatasetSelection(page, "settingsAdaptiveWorldbooks", settingsSelectedOptions(page.querySelector('[data-settings-worldbook]')));
+      if (!worldbookNames.length) { page.dataset.settingsStatus = "请至少选择一本世界书。"; renderSettingsPage(page); return; }
+      page.dataset.settingsStatus = "正在读取 " + worldbookNames.length + " 本世界书并合并生成地图、课程表等应用内容…";
       renderSettingsPage(page);
       try {
-        const profile = await generateAdaptiveWorldbookProfile(worldbookName);
+        const profile = await generateAdaptiveWorldbookProfile(worldbookNames);
         page.dataset.settingsAdaptiveMode = "auto";
-        page.dataset.settingsAdaptiveWorldbook = profile.worldbookName;
-        page.dataset.settingsStatus = "已完成世界书适配：" + profile.worldbookName + "。地图、课程表等应用已切换到生成内容。";
+        settingsWriteDatasetSelection(page, "settingsAdaptiveWorldbooks", profile.worldbookNames || worldbookNames);
+        page.dataset.settingsStatus = "已合并 " + worldbookNames.length + " 本世界书完成适配：" + profile.worldbookName + "。地图、课程表等应用已切换到生成内容。";
       } catch (error) {
         page.dataset.settingsStatus = "生成失败：" + String(error?.message || error || "未知错误");
+      }
+      renderSettingsPage(page);
+    });
+    page.querySelector('[data-settings-action="import-profile-worldbooks"]')?.addEventListener("click", async (event) => {
+      settingsStopEvent(event);
+      const worldbookNames = settingsDatasetSelection(page, "settingsProfileWorldbooks", settingsSelectedOptions(page.querySelector('[data-settings-profile-worldbooks]')));
+      if (!worldbookNames.length) { page.dataset.settingsStatus = "请至少选择一本用于档案的世界书。"; renderSettingsPage(page); return; }
+      page.dataset.settingsStatus = "正在从 " + worldbookNames.length + " 本世界书读取人物档案…";
+      renderSettingsPage(page);
+      try {
+        const result = await importProfileRolesFromWorldbooks(worldbookNames);
+        const femaleCount = Object.values(result.roles).filter((role) => normalizedRoleGender(role?.信息?.性别, "") === "女").length;
+        const maleCount = Object.values(result.roles).filter((role) => normalizedRoleGender(role?.信息?.性别, "") === "男").length;
+        const unknownText = result.unknown.length ? "；另有 " + result.unknown.length + " 个条目未明确性别，未导入" : "";
+        page.dataset.settingsStatus = "档案导入完成：女性 " + femaleCount + " 名，男性 " + maleCount + " 名" + unknownText + "。读取角色资料的应用已刷新。";
+      } catch (error) {
+        page.dataset.settingsStatus = "档案导入失败：" + String(error?.message || error || "未知错误");
       }
       renderSettingsPage(page);
     });
@@ -39563,13 +39707,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       page.dataset.settingsStatus = "已清空当前聊天的世界书适配数据。";
       renderSettingsPage(page);
     });
-    if (settingsTab === "general" && adaptiveMode === "auto" && page.dataset.settingsAdaptiveWorldbooksLoaded !== "true" && page.dataset.settingsAdaptiveWorldbooksLoading !== "true") {
+    if (settingsTab === "general" && page.dataset.settingsAdaptiveWorldbooksLoaded !== "true" && page.dataset.settingsAdaptiveWorldbooksLoading !== "true") {
       page.dataset.settingsAdaptiveWorldbooksLoading = "true";
       adaptiveListWorldbooks().then((names) => {
         page.__stAdaptiveWorldbooks = names;
         page.dataset.settingsAdaptiveWorldbooksLoaded = "true";
         delete page.dataset.settingsAdaptiveWorldbooksLoading;
-        if (!page.dataset.settingsAdaptiveWorldbook && !readAdaptiveSelectedWorldbook() && names.length === 1) page.dataset.settingsAdaptiveWorldbook = names[0];
+        if (!settingsDatasetSelection(page, "settingsAdaptiveWorldbooks", readAdaptiveSelectedWorldbooks()).length && names.length === 1) settingsWriteDatasetSelection(page, "settingsAdaptiveWorldbooks", names);
+        if (!settingsDatasetSelection(page, "settingsProfileWorldbooks", readProfileWorldbookSelections()).length && names.length === 1) settingsWriteDatasetSelection(page, "settingsProfileWorldbooks", names);
         if (page.isConnected) renderSettingsPage(page);
       }).catch((error) => {
         delete page.dataset.settingsAdaptiveWorldbooksLoading;
@@ -39743,7 +39888,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     });
     page.querySelector('[data-settings-action="cheat-on"]')?.addEventListener("click", async (event) => {
       settingsStopEvent(event);
-      await settingsToggleCheatMode(page, true);
+      await settingsToggleCheatMode(page, true, page.querySelector('[data-settings-cheat-key]')?.value || "");
     });
     page.querySelector('[data-settings-action="cheat-off"]')?.addEventListener("click", async (event) => {
       settingsStopEvent(event);
