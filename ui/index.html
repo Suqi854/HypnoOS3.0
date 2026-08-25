@@ -3914,7 +3914,7 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
   }
 
   function loadState() {
-    return normalizeState(defaultState());
+    return normalizeState(adaptiveMchanState(defaultState()));
   }
 
   function saveState(state) {
@@ -9918,6 +9918,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function getConfiguredAchievements() {
+    const adaptive = adaptiveRewardConfig();
+    if (adaptive?.achievements?.length) return adaptive.achievements;
     try {
       const list = globalThis.__HYPNOOS_GET_CONFIGURED_ACHIEVEMENTS__?.();
       if (Array.isArray(list)) return list;
@@ -9928,6 +9930,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function getConfiguredQuests() {
+    const adaptive = adaptiveRewardConfig();
+    if (adaptive?.quests?.length) return adaptive.quests;
     try {
       const list = globalThis.__HYPNOOS_GET_CONFIGURED_QUESTS__?.();
       if (Array.isArray(list)) return list;
@@ -16363,7 +16367,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function timetableStorageKey() {
     try {
-      return ST_TIMETABLE_STORAGE_PREFIX + ":" + graphCommonScopeKey();
+      const suffix = readAdaptiveRegion() === "auto" ? ":adaptive:" + String(readAdaptiveGeneratedProfile()?.sourceHash || "empty").slice(0, 16) : "";
+      return ST_TIMETABLE_STORAGE_PREFIX + ":" + graphCommonScopeKey() + suffix;
     } catch {
       return ST_TIMETABLE_STORAGE_PREFIX + ":global";
     }
@@ -16371,17 +16376,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function timetableDescriptionStorageKey() {
     try {
-      return ST_TIMETABLE_DESC_STORAGE_PREFIX + ":" + graphCommonScopeKey();
+      const suffix = readAdaptiveRegion() === "auto" ? ":adaptive:" + String(readAdaptiveGeneratedProfile()?.sourceHash || "empty").slice(0, 16) : "";
+      return ST_TIMETABLE_DESC_STORAGE_PREFIX + ":" + graphCommonScopeKey() + suffix;
     } catch {
       return ST_TIMETABLE_DESC_STORAGE_PREFIX + ":global";
     }
   }
 
-  function normalizeWeeklyTimetable(source = ST_WEEKLY_TIMETABLE) {
+  function normalizeWeeklyTimetable(source = adaptiveTimetableBase().table) {
     const table = {};
     for (let day = 1; day <= 5; day += 1) {
       const sourceRow = Array.isArray(source?.[day]) ? source[day] : Array.isArray(source?.[String(day)]) ? source[String(day)] : [];
-      const defaultRow = ST_WEEKLY_TIMETABLE[day] || [];
+      const defaultRow = adaptiveTimetableBase().table[day] || [];
       table[day] = ST_CLASS_PERIODS.map((period, index) => {
         const value = String(sourceRow[index] ?? defaultRow[index] ?? "自习").trim();
         return value || "自习";
@@ -16395,7 +16401,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       const parsed = JSON.parse(localStorage.getItem(timetableStorageKey()) || "null");
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return normalizeWeeklyTimetable(parsed);
     } catch {}
-    return normalizeWeeklyTimetable(ST_WEEKLY_TIMETABLE);
+    return normalizeWeeklyTimetable(adaptiveTimetableBase().table);
   }
 
   function normalizeWeeklyTimetableDescriptions(source = {}) {
@@ -16412,7 +16418,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       const parsed = JSON.parse(localStorage.getItem(timetableDescriptionStorageKey()) || "null");
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return normalizeWeeklyTimetableDescriptions(parsed);
     } catch {}
-    return normalizeWeeklyTimetableDescriptions({});
+    return normalizeWeeklyTimetableDescriptions(adaptiveTimetableBase().descriptions);
   }
 
   function writeWeeklyTimetableDescriptions(descriptions) {
@@ -16535,13 +16541,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	  function weeklyTimetableSubject(weekdayIndex, periodIndex, table = readWeeklyTimetable()) {
     const day = Number(weekdayIndex);
     const period = Math.max(1, Math.floor(Number(periodIndex) || 1));
-    return String(table?.[day]?.[period - 1] || ST_WEEKLY_TIMETABLE[day]?.[period - 1] || "自习").trim() || "自习";
+    return String(table?.[day]?.[period - 1] || adaptiveTimetableBase().table[day]?.[period - 1] || "自习").trim() || "自习";
   }
 
   function weeklyTimetableOriginalSubject(weekdayIndex, periodIndex) {
     const day = Number(weekdayIndex);
     const period = Math.max(1, Math.floor(Number(periodIndex) || 1));
-    return String(ST_WEEKLY_TIMETABLE[day]?.[period - 1] || "自习").trim() || "自习";
+    return String(adaptiveTimetableBase().table[day]?.[period - 1] || "自习").trim() || "自习";
   }
 
   function defaultCourseDescription(subject) {
@@ -17207,7 +17213,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       specialDay: null,
       specialText: ""
     };
-    const specialRanges = ST_SPECIAL_DAYS
+    const specialRanges = adaptiveCalendarDays()
       .map((item) => {
         const from = item.from ?? item.d;
         const to = item.to ?? from;
@@ -17315,7 +17321,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (!parsedDate) return [];
     const base = parsedDate;
     const today = schoolYearDay(base.month, base.day);
-    return ST_SPECIAL_DAYS
+    return adaptiveCalendarDays()
       .map((item) => {
         const from = item.from ?? item.d;
         const to = item.to ?? item.d;
@@ -33013,6 +33019,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function loadStaticGraph(scope) {
     syncStaticGraphUpdatesFromChat();
+    const adaptiveGraph = adaptiveStaticGraph(scope);
+    if (adaptiveGraph) return adaptiveGraph;
     try {
       const stored = JSON.parse(localStorage.getItem(graphStorageKey(scope)) || "null");
       if (stored) {
@@ -39271,7 +39279,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (!source) throw new Error("所选世界书没有可用于适配的启用条目。");
     const sourceHash = await adaptiveSourceHash(source);
     const system = "你是HypnoOS世界书适配器。只返回一个JSON对象，不要解释、不要Markdown。不得照抄变量更新规则、提示词、脚本或整段人物设定；必须把来源事实整理成手机应用可直接展示的简短结构化项目。不得使用催眠APP 4.3的固定人物和学校，除非来源世界书本身出现。";
-    const user = `依据下方世界书，为催眠手机生成完整适配数据。JSON严格使用：{"apps":{"map":[{"title":"地点","summary":"说明","meta":"分类或位置"}],"monitor":[{"title":"可观察区域","summary":"公开视角说明","meta":"状态"}],"calendar":[{"title":"日期或日程","summary":"安排","meta":"时间"}],"timetable":[{"title":"课程或时段","summary":"课程、活动、教室等","meta":"星期与时间"}],"rewards":[{"title":"任务或成就","summary":"条件与奖励","meta":"类型"}],"work":[{"title":"工作","summary":"内容、报酬和要求","meta":"时间地点"}],"mchan":[{"title":"匿名话题","summary":"符合世界观的帖子摘要","meta":"分区或热度"}]}}。每类生成2至12项；即使来源未明确写出某类，也要依据世界观做保守、通用且不矛盾的补全。不要输出人物档案、变量格式、更新规则或提示词原文。\n\n世界书：${worldbookName}\n\n${source}`;
+    const user = `依据下方世界书，为催眠手机生成完整适配数据。JSON严格使用：{"apps":{"map":[{"title":"地点","summary":"说明","meta":"分类或位置"}],"monitor":[{"title":"可观察区域","summary":"公开视角说明","meta":"状态"}],"calendar":[{"title":"节日或日程名","summary":"当天详情","meta":"4月9日 13:00"}],"timetable":[{"title":"课程名","summary":"课程内容、教室和相关角色","meta":"周一 第1节 08:40-09:30"}],"rewards":[{"title":"任务或成就名","summary":"目标角色、完成条件和奖励","meta":"任务 +10"}],"work":[{"title":"工作","summary":"内容、报酬和要求","meta":"时间地点"}],"mchan":[{"title":"匿名话题","summary":"符合世界观的帖子正文摘要","meta":"公告区或综合讨论区"}]}}。地图、监控、工作、匿名话题各生成2至12项；日历每项meta必须含“X月X日”，生成4至12项；课程表每项meta必须含“周X 第N节 HH:MM-HH:MM”，生成10至16项；任务与成就都必须存在，meta以“任务”或“成就”开头，summary必须写明目标角色、条件和奖励。即使来源未明确写出某类，也要依据世界观做保守、通用且不矛盾的补全。数据只替换原应用中的内容，不描述界面。不要输出人物档案、变量格式、更新规则或提示词原文。\n\n世界书：${worldbookName}\n\n${source}`;
     const text = await invokeIndependentTextModel({ system, user, note: "世界书适配生成", deferSuccessFeedback: true, maxTokensOverride: 5000 });
     const payload = parseConnectorJsonObject(text, { requiredKeys: ["apps"], allowedKeys: ["apps"] });
     const profile = adaptiveNormalizeGeneratedPayload(payload, worldbookName, sourceHash);
@@ -39294,6 +39302,92 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       };
     }
     return { kind, source: "template", sourceLabel: region === "japan" ? "日本通用模板" : "中国通用模板", records: (ST_ADAPTIVE_TEMPLATES[region]?.[kind] || []).map((item) => ({ ...item })) };
+  }
+
+  function adaptiveRecordsSync(kind) {
+    const region = readAdaptiveRegion();
+    if (region === "auto") return adaptiveNormalizeRecords(readAdaptiveGeneratedProfile()?.apps?.[kind]);
+    return (ST_ADAPTIVE_TEMPLATES[region]?.[kind] || []).map((item, index) => ({ id: item.id || kind + "-" + index, ...item }));
+  }
+
+  function adaptiveCalendarDays() {
+    const records = adaptiveRecordsSync("calendar");
+    const parsed = records.map((item) => {
+      const text = [item.meta, item.title, item.summary].filter(Boolean).join(" ");
+      const range = text.match(/(?:\d{4}年)?\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:[-—至到]\s*(?:(\d{1,2})月)?\s*(\d{1,2})日)?/);
+      if (!range) return null;
+      const month = Number(range[1]);
+      const from = Number(range[2]);
+      const toMonth = Number(range[3] || month);
+      const to = Number(range[4] || from);
+      if (month < 1 || month > 12 || from < 1 || from > 31 || toMonth !== month || to < from || to > 31) return null;
+      const title = String(item.title || "特别日程").replace(/(?:\d{4}年)?\s*\d{1,2}月\s*\d{1,2}日(?:\s*[-—至到].*)?/g, "").trim() || "特别日程";
+      const detail = String(item.meta || "特别日程").replace(/(?:\d{4}年)?\s*\d{1,2}月\s*\d{1,2}日(?:\s*[-—至到].*)?/g, "").trim() || "特别日程";
+      return { m: month, ...(from === to ? { d: from } : { from, to }), title, detail, description: item.summary || detail, holiday: /放假|假期|休息|祝日|节假/.test(text), exam: /考试|测验|考核/.test(text) };
+    }).filter(Boolean);
+    return parsed.length ? parsed : ST_SPECIAL_DAYS;
+  }
+
+  function adaptiveTimetableBase() {
+    const records = adaptiveRecordsSync("timetable");
+    if (!records.length) return { table: ST_WEEKLY_TIMETABLE, descriptions: {} };
+    const table = {}, descriptions = {};
+    for (let day = 1; day <= 5; day += 1) { table[day] = Array(6).fill("自习"); descriptions[day] = Array(6).fill(""); }
+    const weekdayMap = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5 };
+    let cursor = 0;
+    for (const item of records) {
+      const text = [item.meta, item.title].filter(Boolean).join(" ");
+      const day = weekdayMap[text.match(/(?:星期|周)([一二三四五])/)?.[1]] || (Math.floor(cursor / 6) % 5) + 1;
+      let period = Number(text.match(/(?:第\s*)?(\d)\s*(?:限|节)/)?.[1] || 0);
+      if (!period) {
+        const time = text.match(/(\d{1,2})[:：](\d{2})/);
+        if (time) {
+          const minutes = Number(time[1]) * 60 + Number(time[2]);
+          period = ST_CLASS_PERIODS.find((slot) => minutes >= slot.start - 10 && minutes <= slot.end)?.index || 0;
+        }
+      }
+      if (!period || period > 6 || table[day][period - 1] !== "自习") period = (cursor % 6) + 1;
+      const subject = String(item.title || "自习").replace(/(?:星期|周)[一二三四五六日天]/g, "").replace(/(?:第\s*)?\d\s*(?:限|节)/g, "").replace(/\d{1,2}[:：]\d{2}(?:\s*[-—]\s*\d{1,2}[:：]\d{2})?/g, "").replace(/^[·：:\-—\s]+/, "").trim() || "自习";
+      table[day][period - 1] = subject;
+      descriptions[day][period - 1] = item.summary || "";
+      cursor += 1;
+    }
+    return { table, descriptions };
+  }
+
+  function adaptiveRewardConfig() {
+    const records = adaptiveRecordsSync("rewards");
+    if (!records.length) return null;
+    const achievements = [], quests = [];
+    records.forEach((item, index) => {
+      const typeText = [item.meta, item.title].join(" ");
+      const reward = Number(typeText.match(/(?:\+|奖励)\s*(\d+)/)?.[1] || 5);
+      const base = { id: "adaptive-" + (item.id || index), title: item.title, name: item.title, description: item.summary || item.meta || "", condition: item.summary || item.meta || "", rewardStarlight: reward, rewardMoney: reward, rewardItems: [] };
+      if (/成就/.test(typeText) || (!/任务/.test(typeText) && index % 2 === 0)) achievements.push({ ...base, checkCondition: () => false });
+      else quests.push(base);
+    });
+    if (!achievements.length && quests.length) achievements.push({ ...quests[0], id: quests[0].id + "-achievement", checkCondition: () => false });
+    if (!quests.length && achievements.length) quests.push({ ...achievements[0], id: achievements[0].id + "-quest" });
+    return { achievements, quests };
+  }
+
+  function adaptiveMchanState(base) {
+    const records = adaptiveRecordsSync("mchan");
+    if (!records.length) return base;
+    const boardIds = (base.boards || []).map((board) => board.id);
+    const byKeyword = (text) => /公告|规则|警示/.test(text) ? "notice" : /求助|请问/.test(text) ? "help" : /成果|展示|照片/.test(text) ? "showcase" : /新人|入门/.test(text) ? "newbie" : "general";
+    const threads = records.map((item, index) => {
+      const text = [item.meta, item.title].join(" ");
+      const preferred = byKeyword(text);
+      return { id: "adaptive-" + (item.id || index), boardId: boardIds.includes(preferred) ? preferred : boardIds[index % boardIds.length], title: item.title, author: "anonymous", body: item.summary || item.meta || "", pinned: /公告|置顶|规则/.test(text), source: "worldbook-adapter", createdAt: 1711958400000 + index * 60000, updatedAt: 1711958400000 + index * 60000, replies: [] };
+    });
+    return { ...base, activeBoardId: threads[0]?.boardId || base.activeBoardId, activeThreadId: null, threads };
+  }
+
+  function adaptiveStaticGraph(scope) {
+    const records = adaptiveRecordsSync("map");
+    if (!records.length) return null;
+    return normalizeGraphGraph({ title: scope === "school" ? "学校地图" : "区域地图", locations: records.map((item, index) => ({ id: "adaptive-" + (item.id || index), label: item.title, category: item.meta || (scope === "school" ? "校园" : "其他"), info: item.summary || "暂无地点信息。" })) }, scope);
   }
 
   function ensureAdaptiveWorldStyle() {
@@ -40994,19 +41088,19 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     page.__stPendingInputCleanup = () => window.removeEventListener("HYPNOOS_OPERATION_QUEUE_CHANGED", refresh);
   }
 
-  window.__ST_OPEN_MCHAN_APP__ = () => openAdaptiveWorldApp(null, "mchan");
+  window.__ST_OPEN_MCHAN_APP__ = () => openMchanPage(null);
   window.__ST_OPEN_PROFILE_APP__ = (tab, roleName) => openPersonProfilePage(null, tab, roleName);
   window.__ST_OPEN_FEMALE_PROFILE_APP__ = (tab, roleName) => openFemaleProfilePage(null, tab, roleName);
   window.__ST_OPEN_MALE_PROFILE_APP__ = (tab, roleName) => openMaleProfilePage(null, tab, roleName);
-  window.__ST_OPEN_LITE_CALENDAR_APP__ = () => openAdaptiveWorldApp(null, "calendar");
-  window.__ST_OPEN_TIMETABLE_APP__ = () => openAdaptiveWorldApp(null, "timetable");
+  window.__ST_OPEN_LITE_CALENDAR_APP__ = () => openLiteCalendarPage(null);
+  window.__ST_OPEN_TIMETABLE_APP__ = () => openTimetablePage(null);
   window.__ST_OPEN_CLOCK_APP__ = () => openClockPage();
-  window.__ST_OPEN_MAP_APP__ = () => openAdaptiveWorldApp(null, "map");
-  window.__ST_OPEN_CITY_MAP_APP__ = () => openAdaptiveWorldApp(null, "map");
+  window.__ST_OPEN_MAP_APP__ = () => openTodoPage(null, "map", "st-map-app", "地图", "", false);
+  window.__ST_OPEN_CITY_MAP_APP__ = () => openCityMapPage(null);
   window.__ST_OPEN_SCHOOL_APP__ = () => openCityMapPage();
   window.__ST_OPEN_SPECIAL_LOCATION_APP__ = () => openSpecialLocationPage(null);
-  window.__ST_OPEN_MONITOR_APP__ = () => openAdaptiveWorldApp(null, "monitor");
-  window.__ST_OPEN_WORK_APP__ = () => openAdaptiveWorldApp(null, "work");
+  window.__ST_OPEN_MONITOR_APP__ = () => openMonitorPage(null);
+  window.__ST_OPEN_WORK_APP__ = () => openWorkPage(null);
   window.__ST_OPEN_CAMERA_APP__ = () => openCameraPage();
   window.__ST_OPEN_WALLPAPER_APP__ = () => openWallpaperPage();
   window.__ST_OPEN_ENCOUNTER_APP__ = (tab) => openEncounterPage(null, tab);
@@ -41021,7 +41115,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(warmEncounterLibrary, { timeout: 1800 });
   else window.setTimeout(warmEncounterLibrary, 600);
   window.__ST_OPEN_INVENTORY_APP__ = () => openInventoryPage();
-  window.__ST_OPEN_REWARD_APP__ = () => openAdaptiveWorldApp(null, "rewards");
+  window.__ST_OPEN_REWARD_APP__ = () => openRewardPage(null);
   window.__ST_OPEN_HYPNOSIS_LITE_APP__ = () => openHypnosisLitePage();
   window.__ST_OPEN_HELP_APP__ = () => openHelpLitePage();
   window.__ST_OPEN_SETTINGS_APP__ = () => openSettingsPage();
@@ -41785,7 +41879,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        openAdaptiveWorldApp(calendarTile, "calendar");
+        openLiteCalendarPage(calendarTile);
       }, true);
     }
     const parent = calendarTile.parentElement;
@@ -41802,7 +41896,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     timetableTile.dataset.stTimetableTile = "true";
     if (createdTimetable) setHomeTileIcon(timetableTile, ST_APP_ICONS.timetable, "课程表");
-    bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", (tile) => openAdaptiveWorldApp(tile, "timetable"));
+    bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", openTimetablePage);
     let clockTile = dedupeHomeTilesByText("时钟") || parent.querySelector('[data-st-clock-tile="true"]');
     let createdClock = false;
     if (!clockTile) {
@@ -41826,7 +41920,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const root = findPhoneRoot(document.body);
     if (!root || !looksLikePhoneHome(root)) return;
     const mapTile = findHomeTileByText("地图");
-    if (mapTile) bindHomeTileAction(mapTile, "stMapTilePatched", "打开地图", (tile) => openAdaptiveWorldApp(tile, "map"));
+    if (mapTile) bindHomeTileAction(mapTile, "stMapTilePatched", "打开地图", (tile) => openTodoPage(tile, "map", "st-map-app", "地图", "", false));
     const schoolTile = findHomeTileByText("校规");
     if (schoolTile) schoolTile.remove();
   }
@@ -41836,7 +41930,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (!root || !looksLikePhoneHome(root)) return;
     const specs = [
       { label: "催眠APP", flag: "stHypnosisLitePatched", aria: "打开催眠APP", open: openHypnosisLitePage },
-      { label: "成就和任务", flag: "stRewardLitePatched", aria: "打开成就和任务", open: (tile) => openAdaptiveWorldApp(tile, "rewards") },
+      { label: "成就和任务", flag: "stRewardLitePatched", aria: "打开成就和任务", open: openRewardPage },
       { label: "库存", flag: "stInventoryLitePatched", aria: "打开库存", open: openInventoryPage },
       { label: "设置", flag: "stSettingsLitePatched", aria: "打开设置", open: openSettingsPage }
     ];
@@ -41923,12 +42017,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const root = findPhoneRoot(document.body);
     if (!root || !looksLikePhoneHome(root)) return;
     const specs = [
-      { label: "监控", kind: "monitor", flag: "stAdaptiveMonitorPatched" },
-      { label: "打工", kind: "work", flag: "stAdaptiveWorkPatched" }
+      { label: "监控", open: openMonitorPage, flag: "stAdaptiveMonitorPatched" },
+      { label: "打工", open: openWorkPage, flag: "stAdaptiveWorkPatched" }
     ];
     for (const spec of specs) {
       const tile = findHomeTileByText(spec.label);
-      if (tile) bindHomeTileAction(tile, spec.flag, "打开" + spec.label, (target) => openAdaptiveWorldApp(target, spec.kind));
+      if (tile) bindHomeTileAction(tile, spec.flag, "打开" + spec.label, spec.open);
     }
   }
 
@@ -41957,7 +42051,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        openAdaptiveWorldApp(tile, "mchan");
+        openMchanPage(tile);
       }, true);
     }
   }

@@ -30,8 +30,8 @@ async function openPhone(viewport, screenshotPrefix) {
         map: [{ title: 'QA测试地点', summary: '图书馆、车站与校园构成主要活动区域。', meta: '校园区域' }],
         monitor: [{ title: 'QA车站公共监控', summary: '查看车站入口与公共通道的安全摘要。', meta: '在线' }],
         calendar: [{ title: 'QA开学日', summary: '举行开学说明与校园参观。', meta: '4月8日' }],
-        timetable: [{ title: '周一第一节 · 语文', summary: 'QA教室的上午课程。', meta: '08:30-09:15' }],
-        rewards: [{ title: '初访图书馆', summary: '完成一次图书馆探索并获得记录奖励。', meta: '任务' }],
+        timetable: [{ title: '语文', summary: 'QA教室的上午课程。', meta: '周一 第1节 08:30-09:15' }],
+        rewards: [{ title: '初访图书馆', summary: '与QA角色完成一次图书馆探索，奖励10星光点。', meta: '任务 +10' }, { title: '校园观察者', summary: '观察QA角色所在校园的三个地点，奖励15星光点。', meta: '成就 +15' }],
         work: [{ title: '图书管理员助理', summary: '整理图书并协助借阅，按班次结算。', meta: '放学后' }],
         mchan: [{ title: '校园新学期见闻', summary: '匿名讨论图书馆与车站附近的新鲜事。', meta: '校园区' }],
       },
@@ -271,30 +271,55 @@ async function openPhone(viewport, screenshotPrefix) {
   });
   assert.ok(generatedProfile, '生成完成后没有保存结构化适配包');
   assert.equal(generatedProfile.schema, 'HypnoWorldAdaptation/v1');
-  assert.equal(generatedProfile.apps.timetable[0].title, '周一第一节 · 语文');
+  assert.equal(generatedProfile.apps.timetable[0].title, '语文');
   await frame.locator('.st-settings-region-panel').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-worldbook-adapter-settings.png`, fullPage: true });
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await frame.locator('[aria-label="打开地图"]').click();
-  await frame.waitForSelector('.st-adaptive-world-app');
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /世界书适配 · qa-book/);
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /QA测试地点/);
-  assert.doesNotMatch(await frame.locator('.st-adaptive-world-app').innerText(), /QA男性档案|变量更新规则/);
-  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForSelector('.st-map-app');
+  assert.match(await frame.locator('.st-map-app').innerText(), /QA测试地点/);
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '地图被统一卡片页覆盖');
+  await frame.locator('.st-map-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开日历"]').click();
+  await frame.waitForSelector('.st-calendar-lite-app .st-cal-month-grid');
+  assert.match(await frame.locator('.st-calendar-lite-app').innerText(), /QA开学日/);
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '日历被统一卡片页覆盖');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-calendar-original-ui.png`, fullPage: true });
+  await frame.locator('.st-calendar-lite-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
   await frame.locator('[aria-label="打开课程表"]').click();
-  await frame.waitForSelector('.st-adaptive-world-app');
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /周一第一节 · 语文/);
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /08:30-09:15/);
-  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForSelector('.st-timetable-app .st-tt-week');
+  assert.match(await frame.locator('.st-timetable-app').innerText(), /语文/);
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '课程表被统一卡片页覆盖');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-timetable-original-ui.png`, fullPage: true });
+  await frame.locator('.st-timetable-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开MC匿名版"]').click();
+  await frame.waitForSelector('.st-mchan-internal-app .st-mchan-boards');
+  assert.match(await frame.locator('.st-mchan-internal-app').innerText(), /校园新学期见闻/);
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, 'MC匿名版被统一卡片页覆盖');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-mchan-original-ui.png`, fullPage: true });
+  await frame.locator('.st-mchan-internal-app .st-mchan-back').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开成就和任务"]').click();
+  await frame.waitForSelector('.st-reward-app .st-graph-tabs');
+  assert.match(await frame.locator('.st-reward-app').textContent(), /校园观察者/);
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '任务与成就被统一卡片页覆盖');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-rewards-original-ui.png`, fullPage: true });
+  await frame.locator('.st-reward-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
   await frame.locator('[aria-label="打开监控"]').click();
-  await frame.waitForSelector('.st-adaptive-world-app');
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /QA车站公共监控/);
-  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-adaptive-monitor.png`, fullPage: true });
-  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForSelector('.st-monitor-app');
+  assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '监控被统一卡片页覆盖');
+  await frame.locator('.st-monitor-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await frame.locator('[aria-label="打开设置"]').click();
@@ -339,7 +364,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.1-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.1-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.2-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.2-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();
