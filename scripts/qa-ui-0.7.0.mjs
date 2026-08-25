@@ -29,6 +29,7 @@ async function openPhone(viewport, screenshotPrefix) {
     const adapted = {
       apps: {
         map: [{ title: 'QA测试地点', summary: '图书馆、车站与校园构成主要活动区域。', meta: '校园区域' }],
+        specialLocations: [{ title: 'QA秘密图书馆', summary: '只有持有校内资料许可的人才能查阅的隐藏馆藏区。', meta: '校园 · 资料' }],
         monitor: [{ title: 'QA车站公共监控', summary: '查看车站入口与公共通道的安全摘要。', meta: '在线' }],
         calendar: [{ title: 'QA开学日', summary: '举行开学说明与校园参观。', meta: '4月8日' }],
         timetable: [{ title: '语文', summary: 'QA教室的上午课程。', meta: '周一 第1节 08:30-09:15' }],
@@ -352,9 +353,17 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(generatedProfile.schema, 'HypnoWorldAdaptation/v1');
   assert.deepEqual(generatedProfile.worldbookNames, ['qa-book', 'qa-book-2']);
   assert.equal(generatedProfile.apps.timetable[0].title, '语文');
+  assert.equal(generatedProfile.apps.specialLocations[0].title, 'QA秘密图书馆');
   await frame.locator('.st-settings-region-panel').scrollIntoViewIfNeeded();
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-worldbook-adapter-settings.png`, fullPage: true });
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.evaluate(() => window.__ST_OPEN_SPECIAL_LOCATION_APP__?.());
+  await frame.waitForSelector('.st-special-location-app');
+  assert.match(await frame.locator('.st-special-location-app').innerText(), /QA秘密图书馆/);
+  assert.doesNotMatch(await frame.locator('.st-special-location-app').innerText(), /明德大学|巴别|秀尽学园/);
+  await frame.locator('.st-special-location-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await frame.locator('[aria-label="打开女性档案"]').click();
