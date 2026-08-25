@@ -9385,8 +9385,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     vip5_fetish_implant: "植入性癖倾向；不瞬间失控或人格崩坏，通常需诱发条件。",
     vip5_permanent_false_memory: "永久植入一段虚假记忆。",
     vip5_permanent_personality: "永久植入人格；按人格内容长期生效。",
-    vip5_open_space_common_sense: "开放空间范围型常识修改；不乘人数，不需要指定目标或声波。",
-    vip6_pregnancy_confirmation: "这是{{user}}对自己的自我催眠，只临时解除催眠APP对{{user}}生育能力的限制；按人次消耗星光点，不消耗MC，不计算时间，不写入临时催眠效果或永久催眠效果；它没有催眠或强迫他人怀孕的能力，仍可失败。"
+    vip5_open_space_common_sense: "开放空间范围型常识修改；不乘人数，不需要指定目标或声波。"
   };
   const ST_HYPNOSIS_BODY_PARTS = [
     { id: "clitoris", label: "阴蒂", stat: "阴蒂敏感度" },
@@ -9406,7 +9405,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   const HYP_CUSTOM_ITEM_MIN_VIP_RANK = 2;
   const HYP_CUSTOM_ITEM_RULE_TEXT = "只能生成衣物或性道具；没有精神方面的影响操作，只能迎合用户性趣味；可以违背一定程度的物理法则，但不能带来直接金钱收益、增强战斗力、强迫他人、远程监控、读心、催眠、洗脑、强制命令或其他明显影响剧情发展的能力。";
   const HYP_SUPPLY_QTY_MAX = Number.MAX_SAFE_INTEGER;
-  const HYP_PREGNANCY_CONFIRMATION_FEATURE_ID = "vip6_pregnancy_confirmation";
 
   function reactVipRank(tier) {
     const match = String(tier || "").toUpperCase().match(/VIP\s*([1-6])/);
@@ -9523,51 +9521,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function hypnosisCustomItemSafeLabel(requirement) {
     const text = String(requirement || "").replace(/[\r\n]+/g, " ").replace(/[\/\\[\]{}<>|=]/g, " ").replace(/\s+/g, " ").trim();
     return text.slice(0, 10) || "趣味";
-  }
-
-  const HYP_OFFSPRING_STARLIGHT_COST = 10;
-
-  function hypnosisOffspringCandidates() {
-    const roles = getStatsRoles();
-    return sortedStatsRoleNames(roles).filter((roleName) => {
-      const role = roles?.[roleName];
-      if (!isPlainObject(role) || roleName === ST_GHOST_ROLE_NAME) return false;
-      if (isMaleRole(roleName, role)) return false;
-      return normalizeRoleChildren(role["子嗣"])["是否妊娠中"] !== true;
-    });
-  }
-
-  function hypnosisOffspringChildKey(childrenRoot, preferredName = "") {
-    const list = normalizeRoleChildren(childrenRoot)["子嗣列表"];
-    const base = String(preferredName || "").trim();
-    if (base) {
-      if (!Object.prototype.hasOwnProperty.call(list, base)) return base;
-      let namedNumber = 2;
-      while (Object.prototype.hasOwnProperty.call(list, base + namedNumber)) namedNumber += 1;
-      return base + namedNumber;
-    }
-    let number = Math.max(1, Object.keys(list).length + 1);
-    while (Object.prototype.hasOwnProperty.call(list, "子嗣" + number)) number += 1;
-    return "子嗣" + number;
-  }
-
-  function hypnosisOffspringExpectedRoot(roleData, system, childKey, childName) {
-    const root = normalizeRoleChildren(roleData?.["子嗣"]);
-    root["是否妊娠中"] = true;
-    root["子嗣列表"][childKey] = {
-      "名称": childName || "未命名",
-      "性别": "女",
-      "阶段": "胚胎",
-      "妊娠开始日期": systemStoryDateText(system),
-      "出生日期": "",
-      "角色名": "",
-      "说明": ""
-    };
-    return root;
-  }
-
-  function hypnosisOffspringCleanName(value) {
-    return String(value || "").replace(/[\r\n<>\/\\[\]{}|=]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 24);
   }
 
   async function appendHypnosisCustomItemOperation(root, requirement) {
@@ -11342,7 +11295,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisSelectedNeedsTargetDelivery(features) {
-    return (Array.isArray(features) ? features : []).some((feature) => hypnosisFeatureUsesPersonCount(feature) && !hypnosisFeatureIsPregnancyConfirmation(feature));
+    return (Array.isArray(features) ? features : []).some((feature) => hypnosisFeatureUsesPersonCount(feature));
   }
 
   function hypnosisEffectiveDeliveryMode(draft, system = getSystemState(), selectedFeatures = null) {
@@ -11394,10 +11347,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     return pendingHypnosisOperation((payload) => String(payload["操作"] || "").trim() === "购买VIP等级");
   }
 
-  function hasPendingHypnosisPregnancyOperation() {
-    return pendingHypnosisOperation((payload) => String(payload["操作"] || "").trim() === "妊娠确认");
-  }
-
   function hypnosisFeaturePrompt(feature) {
     return String(ST_HYPNOSIS_FEATURE_PROMPTS[feature?.id || ""] || "").trim().replace(/[。．.，,、；;：:！？!?]+$/u, "");
   }
@@ -11410,12 +11359,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     });
   }
 
-  function hypnosisFeatureIsPregnancyConfirmation(feature) {
-    return feature?.id === HYP_PREGNANCY_CONFIRMATION_FEATURE_ID;
-  }
-
   function hypnosisRoleOptionsForFeature(feature) {
-    return hypnosisFeatureIsPregnancyConfirmation(feature) ? hypnosisOffspringCandidates() : hypnosisCurrentRoleNames();
+    return hypnosisCurrentRoleNames();
   }
 
   function hypnosisArrayMapValue(draft, key, id) {
@@ -11454,7 +11399,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisFeatureUsesDuration(feature) {
-    if (hypnosisFeatureIsPregnancyConfirmation(feature)) return false;
     return feature?.costType !== "ONE_TIME" && !["vip1_temp_sensitivity", "vip1_estrus", "vip1_memory_erase"].includes(feature?.id);
   }
 
@@ -11474,7 +11418,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function hypnosisTemporaryEffectEndTextByMinutes(featureId, durationMinutes) {
     const id = String(featureId || "").trim();
-    if (!id || id === HYP_PREGNANCY_CONFIRMATION_FEATURE_ID || ST_HYPNOSIS_PERMANENT_EFFECT_IDS.has(id) || ST_HYPNOSIS_NARRATIVE_RANGE_IDS.has(id) || id === "vip5_open_space_common_sense") return "";
+    if (!id || ST_HYPNOSIS_PERMANENT_EFFECT_IDS.has(id) || ST_HYPNOSIS_NARRATIVE_RANGE_IDS.has(id) || id === "vip5_open_space_common_sense") return "";
     const system = getSystemState();
     const parsed = parseStoryDate(systemStoryDateText(system));
     const currentMinutes = minutesFromTimeText(storyTimeOnly(system?.["当前时间"], "00:00"));
@@ -11506,13 +11450,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function hypnosisFeatureResultContract(feature, roleNames, personCount, effectEndText = "") {
     const id = String(feature?.id || "").trim();
-    if (hypnosisFeatureIsPregnancyConfirmation(feature)) {
-      return {
-        时效: "不产生催眠效果",
-        作用域: "自我催眠后仅核对1个指定角色的子嗣结果",
-        写入: "不写临时催眠效果或永久催眠效果"
-      };
-    }
     if (id === "vip5_open_space_common_sense") {
       return {
         时效: "临时地点规则",
@@ -11556,7 +11493,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisFeaturePersonCount(feature, draft) {
-    if (hypnosisFeatureIsPregnancyConfirmation(feature)) return hypnosisSelectedRoleNames(feature, draft).length ? 1 : 0;
     if (hypnosisSelectionMode(draft)) return Math.min(99, hypnosisSelectedRoleNames(feature, draft).length);
     return hypnosisLiteInt(hypnosisLiteMapValue(draft, "persons", feature.id, "1"), 1, 1, 99);
   }
@@ -11596,7 +11532,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function hypnosisLiteFeatureCost(feature, draft) {
     if (settingsCheatModeActive()) return 0;
-    if (hypnosisFeatureIsPregnancyConfirmation(feature)) return 0;
     if (!feature || Number(feature.costValue || 0) <= 0) return 0;
     const base = feature.id === "vip1_temp_sensitivity" ? 2 : Math.max(0, Math.floor(Number(feature.costValue || 0) || 0));
     const persons = hypnosisFeatureUsesPersonCount(feature) ? hypnosisFeaturePersonCount(feature, draft) : 1;
@@ -11607,76 +11542,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisLiteFeatureStarlightCost(feature, draft) {
-    if (settingsCheatModeActive()) return 0;
-    if (!hypnosisFeatureIsPregnancyConfirmation(feature)) return 0;
-    return Math.max(0, Math.floor(Number(feature?.costValue || 0) || 0) * hypnosisFeaturePersonCount(feature, draft));
-  }
-
-  function hypnosisOffspringNameList(feature, draft) {
-    const featureId = feature?.id || "";
-    const map = draft?.offspringNames && typeof draft.offspringNames === "object" && !Array.isArray(draft.offspringNames) ? draft.offspringNames : {};
-    const raw = Array.isArray(map[featureId]) ? map[featureId] : [];
-    const count = hypnosisFeaturePersonCount(feature, draft);
-    const list = [];
-    for (let i = 0; i < count; i += 1) list.push(hypnosisOffspringCleanName(raw[i] || ""));
-    return list;
-  }
-
-  function hypnosisPregnancyFeature() {
-    return {
-      id: HYP_PREGNANCY_CONFIRMATION_FEATURE_ID,
-      tier: "VIP6",
-      title: "妊娠确认",
-      description: "对{{user}}进行一次自我催眠，临时解除APP对{{user}}生育能力的限制；不强迫他人怀孕，也可能失败。",
-      costType: "STARLIGHT_PER_PERSON",
-      costValue: HYP_OFFSPRING_STARLIGHT_COST,
-      placeholder: "填写每个人次的子嗣姓名"
-    };
-  }
-
-  function hypnosisPregnancySelectedRoleName(draft) {
-    const feature = hypnosisPregnancyFeature();
-    return feature ? (hypnosisSelectedRoleNames(feature, draft)[0] || "") : "";
-  }
-
-  function hypnosisPregnancySelectedChildName(draft) {
-    const feature = hypnosisPregnancyFeature();
-    return feature ? (hypnosisOffspringNameList(feature, draft)[0] || "") : "";
-  }
-
-  function hypnosisPregnancyPayload(roleName, childName) {
-    const cleanRoleName = String(roleName || "").trim();
-    const cleanChildName = hypnosisOffspringCleanName(childName || "");
-    const roles = getStatsRoles();
-    const systemNow = getSystemState();
-    const roleData = roles?.[cleanRoleName];
-    const childKey = hypnosisOffspringChildKey(roleData?.["子嗣"], cleanChildName);
-    return {
-      来源: "催眠APP",
-      操作: "妊娠确认",
-      指令ID: HYP_PREGNANCY_CONFIRMATION_FEATURE_ID,
-      指令: "妊娠确认",
-      目标角色: cleanRoleName,
-      子嗣命名: cleanChildName,
-      星光点消耗: HYP_OFFSPRING_STARLIGHT_COST + "点",
-	      每人次消耗星光点: HYP_OFFSPRING_STARLIGHT_COST,
-	      人次: 1,
-	      施术模式: "自我催眠",
-	      变量处理: "AI结算",
-	      AI可写路径: ["/系统/星光点", rolePageVariablePath(cleanRoleName, "子嗣") + "/" + childKey],
-	      不写催眠效果: "不写入临时催眠效果或永久催眠效果",
-      子嗣写入计划: [{
-        目标角色: cleanRoleName,
-        子嗣名称: cleanChildName,
-        子嗣键: childKey,
-        变量写入路径: rolePageVariablePath(cleanRoleName, "子嗣"),
-        成功时目标子嗣根: hypnosisOffspringExpectedRoot(roleData, systemNow, childKey, cleanChildName)
-      }],
-      结算提示: "妊娠确认是{{user}}对自己的自我催眠，只临时解除催眠APP对{{user}}生育能力的限制；没有催眠或强迫他人怀孕的能力，可以失败。本楼层只处理这1个目标角色与1个子嗣姓名，并在同一AI回复内结束。",
-      不可删除: true,
-      locked: true,
-      forceLocked: true
-    };
+    return 0;
   }
 
   function hypnosisLiteSelectedFeatures(draft = readHypnosisLiteDraft()) {
@@ -11713,15 +11579,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function renderHypnosisFeatureParams(feature, draft, page) {
-    if (hypnosisFeatureIsPregnancyConfirmation(feature)) {
-      const roleName = hypnosisPregnancySelectedRoleName(draft);
-      const childName = hypnosisPregnancySelectedChildName(draft);
-      const candidates = hypnosisOffspringCandidates();
-      const preview = roleName ? (roleName + "｜" + (childName || "未取名")) : "尚未配置";
-      return '<div class="st-hypnosis-param-grid">' +
-        '<button type="button" class="st-hypnosis-pick-button st-hypnosis-param-wide" data-hypnosis-pregnancy-open' + (candidates.length ? "" : " disabled") + '><i class="st-hypnosis-pick-plus">✦</i><strong>' + escapeHtml(preview) + '</strong><small>一次楼层仅1人1子嗣</small></button>' +
-      '</div>';
-    }
     const items = [];
     const selectionMode = hypnosisSelectionMode(draft);
     if (hypnosisFeatureUsesPersonCount(feature)) {
@@ -11777,10 +11634,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const totalCost = selectedFeatures.reduce((sum, feature) => sum + hypnosisLiteFeatureCost(feature, draft), 0) + soundwaveCost;
     const totalStarlightCost = selectedFeatures.reduce((sum, feature) => sum + hypnosisLiteFeatureStarlightCost(feature, draft), 0);
     const pendingStart = hasPendingHypnosisStartOperation();
-    const pendingPregnancy = hasPendingHypnosisPregnancyOperation();
-    const pregnancyUnlocked = currentRank >= 6;
-    const pregnancyCandidates = pregnancyUnlocked ? hypnosisOffspringCandidates() : [];
-    const pregnancyDisabled = pendingPregnancy || pregnancyCandidates.length <= 0;
     const tiers = ["TRIAL", ...HYP_REACT_VIP_TIERS];
     const groups = tiers.map((tier) => {
       const features = ST_HYPNOSIS_FEATURES.filter((feature) => feature.tier === tier);
@@ -11797,16 +11650,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '<section class="st-hypnosis-tier-body">' + features.map((feature) => renderHypnosisCommandCard(feature, draft, accessible, page)).join("") + '</section>' +
       '</details>';
     }).join("");
-    const pregnancyButton = pregnancyUnlocked
-      ? '<button type="button" class="' + (pendingPregnancy ? "active" : "") + '" data-hypnosis-pregnancy-open' + (pregnancyDisabled ? " disabled" : "") + '>妊娠确认</button>'
-      : "";
     return '<section class="st-lite-card st-graph-paper st-hypnosis-form">' +
       '<div class="st-graph-head"><strong>催眠指令</strong><span>每条指令独立设置参数</span></div>' +
       '<div class="st-hypnosis-mode-row"><span>按钮代表实际行动；声波仅对指定目标命令+100MC。</span><div class="st-hypnosis-mode-buttons">' +
         '<button type="button" class="' + (deliveryMode === "number" ? "active" : "") + '" data-hypnosis-delivery-mode="number">数字</button>' +
         '<button type="button" class="' + (selectionMode ? "active" : "") + '" data-hypnosis-delivery-mode="selection">选择</button>' +
         '<button type="button" class="' + (soundwaveWanted ? "active" : "") + '" data-hypnosis-soundwave-toggle' + (soundwaveUnlocked ? "" : " disabled") + '>声波</button>' +
-        pregnancyButton +
       '</div></div>' +
       '<section class="st-hypnosis-list">' + groups + '</section>' +
       '<div class="st-hypnosis-submit-row">' +
@@ -11860,24 +11709,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           '<button type="button" data-hypnosis-dialog-close>取消</button>' +
           '<button type="submit" class="primary">暂存需求</button>' +
         '</div>' +
-      '</form>' +
-    '</div>';
-  }
-
-  function renderHypnosisPregnancyDialog(page) {
-    if (page?.dataset?.hypnosisCommandDialog !== "pregnancy") return "";
-    const candidates = hypnosisOffspringCandidates();
-    const storedRole = String(page?.dataset?.hypnosisPregnancyRole || "").trim();
-    const selected = candidates.includes(storedRole) ? storedRole : (candidates[0] || "");
-    const childName = String(page?.dataset?.hypnosisPregnancyName || "").trim();
-    const options = candidates.map((name) => '<option value="' + escapeAttr(name) + '"' + (name === selected ? " selected" : "") + '>' + escapeHtml(name) + '</option>').join("");
-    return '<div class="st-hypnosis-dialog-layer" data-hypnosis-dialog-layer role="presentation">' +
-      '<form class="st-hypnosis-dialog-card" data-hypnosis-pregnancy-form role="dialog" aria-modal="true" aria-label="妊娠确认">' +
-        '<h3>妊娠确认</h3>' +
-        '<p>这是命令区内的VIP6独立指令：本楼层只能选择1个角色、1个子嗣名；消耗10星光点由AI在当前回复结算，不写临时或永久催眠效果。</p>' +
-        '<label><span>目标角色</span><select name="pregnancy-role" data-hypnosis-pregnancy-role>' + options + '</select></label>' +
-        '<label><span>子嗣姓名</span><input name="pregnancy-child-name" maxlength="24" data-hypnosis-pregnancy-name value="' + escapeAttr(childName) + '" placeholder="由玩家决定，一次楼层一个"></label>' +
-        '<div class="st-hypnosis-dialog-actions"><button type="button" data-hypnosis-dialog-close>取消</button><button type="submit" class="primary"' + (selected ? "" : " disabled") + '>暂存妊娠确认</button></div>' +
       '</form>' +
     '</div>';
   }
@@ -11947,7 +11778,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         (notice ? '<p class="st-hypnosis-notice">' + escapeHtml(notice) + '</p>' : "") +
         body +
       '</main>' +
-      renderHypnosisCustomItemDialog(page) + renderHypnosisPregnancyDialog(page);
+      renderHypnosisCustomItemDialog(page);
     const rerenderPreservingScroll = () => rerenderLitePagePreservingBodyScroll(page, () => renderHypnosisLitePage(page));
     bindLiteHeader(page, rerenderPreservingScroll);
     page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => closeInternalLitePage(page, "hypnosis"));
@@ -11968,11 +11799,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }));
     page.querySelector("[data-hypnosis-custom-item-open]")?.addEventListener("click", () => {
       page.dataset.hypnosisSupplyDialog = "custom-item";
-      delete page.dataset.hypnosisNotice;
-      rerenderPreservingScroll();
-    });
-    page.querySelector("[data-hypnosis-pregnancy-open]")?.addEventListener("click", () => {
-      page.dataset.hypnosisCommandDialog = "pregnancy";
       delete page.dataset.hypnosisNotice;
       rerenderPreservingScroll();
     });
@@ -11997,29 +11823,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       Promise.resolve(appendHypnosisCustomItemOperation(page, text)).then((result) => {
         delete page.dataset.hypnosisSupplyDialog;
         page.dataset.hypnosisNotice = result?.message || (result ? "定制物品已暂存。" : "定制物品兑换失败。");
-        rerenderPreservingScroll();
-      });
-    });
-    page.querySelector("[data-hypnosis-pregnancy-form]")?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const roleName = String(page.querySelector("[data-hypnosis-pregnancy-role]")?.value || "").trim();
-      const childName = hypnosisOffspringCleanName(page.querySelector("[data-hypnosis-pregnancy-name]")?.value || "");
-      if (!roleName || !childName) {
-        page.dataset.hypnosisNotice = "妊娠确认需要选择目标角色并填写子嗣姓名。";
-        rerenderPreservingScroll();
-        return;
-      }
-      if (hasPendingHypnosisPregnancyOperation()) {
-        page.dataset.hypnosisNotice = "妊娠确认已在暂存区。本楼层只能处理1个角色的1个子嗣。";
-        delete page.dataset.hypnosisCommandDialog;
-        rerenderPreservingScroll();
-        return;
-      }
-      Promise.resolve(appendAppOperation(hypnosisPregnancyPayload(roleName, childName))).then((added) => {
-        delete page.dataset.hypnosisCommandDialog;
-        delete page.dataset.hypnosisPregnancyRole;
-        delete page.dataset.hypnosisPregnancyName;
-        page.dataset.hypnosisNotice = added ? "妊娠确认已暂存。本楼层只会处理这1名角色的1个子嗣。" : "妊娠确认已在暂存区。";
         rerenderPreservingScroll();
       });
     });
@@ -12090,16 +11893,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       updateDraft((draft) => {
         const enabled = { ...(draft.enabled || {}) };
         enabled[featureId] = Boolean(input.checked);
-        if (featureId !== HYP_PREGNANCY_CONFIRMATION_FEATURE_ID || input.checked) return { ...draft, enabled };
-        const roleSelections = { ...(draft.roleSelections || {}) };
-        const offspringNames = { ...(draft.offspringNames || {}) };
-        const persons = { ...(draft.persons || {}) };
-        delete roleSelections[featureId];
-        delete offspringNames[featureId];
-        delete persons[featureId];
-        return { ...draft, enabled, roleSelections, offspringNames, persons };
+        return { ...draft, enabled };
       });
-      if (featureId === HYP_PREGNANCY_CONFIRMATION_FEATURE_ID && input.checked) page.dataset.hypnosisCommandDialog = "pregnancy";
       rerenderPreservingScroll();
     }));
     page.querySelectorAll("[data-hypnosis-feature-note]").forEach((input) => input.addEventListener("input", () => {
@@ -12141,17 +11936,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       });
       input.addEventListener("blur", rerenderPreservingScroll, { once: true });
     }));
-    page.querySelectorAll("[data-hypnosis-feature-offspring-name]").forEach((input) => input.addEventListener("input", () => {
-      updateDraft((draft) => {
-        const id = input.getAttribute("data-hypnosis-feature-offspring-name") || "";
-        const index = Math.max(0, Math.floor(Number(input.getAttribute("data-offspring-name-index") || 0) || 0));
-        const offspringNames = { ...(draft.offspringNames || {}) };
-        const list = Array.isArray(offspringNames[id]) ? [...offspringNames[id]] : [];
-        list[index] = hypnosisOffspringCleanName(input.value || "");
-        offspringNames[id] = list;
-        return { ...draft, offspringNames };
-      });
-    }));
     page.querySelector("[data-hypnosis-start]")?.addEventListener("click", () => {
       if (hasPendingHypnosisStartOperation()) {
         page.dataset.hypnosisNotice = "催眠操作已在暂存区。";
@@ -12189,18 +11973,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           return;
         }
       }
-      const pregnancyFeature = selected.find((feature) => hypnosisFeatureIsPregnancyConfirmation(feature));
-      if (pregnancyFeature && hypnosisSelectedRoleNames(pregnancyFeature, draft).length !== 1) {
-        page.dataset.hypnosisNotice = "妊娠确认每楼层只能选择1个未妊娠中的角色。";
-        rerenderPreservingScroll();
-        return;
-      }
-      const missingOffspringName = pregnancyFeature && !hypnosisPregnancySelectedChildName(draft);
-      if (missingOffspringName) {
-        page.dataset.hypnosisNotice = "妊娠确认需要填写这1个子嗣姓名。";
-        rerenderPreservingScroll();
-        return;
-      }
       const notes = draft.notes && typeof draft.notes === "object" ? draft.notes : {};
       const soundwaveCost = hypnosisSoundwaveSurcharge(draft, system, selected);
       const totalCost = selected.reduce((sum, feature) => sum + hypnosisLiteFeatureCost(feature, draft), 0) + soundwaveCost;
@@ -12214,31 +11986,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           指令提示: hypnosisFeaturePrompt(feature),
           备注: String(notes[feature.id] || "").trim() || "无",
           预计消耗MC能量: hypnosisLiteFeatureCost(feature, draft),
-          消耗类型: hypnosisFeatureIsPregnancyConfirmation(feature) ? "星光点" : "当前MC能量"
+          消耗类型: "当前MC能量"
         };
-        if (hypnosisFeatureIsPregnancyConfirmation(feature)) {
-          const childNames = hypnosisOffspringNameList(feature, draft);
-          const roleNames = hypnosisSelectedRoleNames(feature, draft);
-          detail["预计消耗星光点"] = hypnosisLiteFeatureStarlightCost(feature, draft);
-          detail["每人次消耗星光点"] = HYP_OFFSPRING_STARLIGHT_COST;
-          detail["子嗣命名"] = childNames.join("、");
-          detail["不写催眠效果"] = "不写入临时催眠效果或永久催眠效果";
-          if (roleNames[0]) detail["目标角色"] = roleNames[0];
-          const roles = getStatsRoles();
-          const systemNow = getSystemState();
-          detail["子嗣写入计划"] = roleNames.slice(0, 1).map((name, index) => {
-            const childName = childNames[index] || "未命名";
-            const roleData = roles?.[name];
-            const childKey = hypnosisOffspringChildKey(roleData?.["子嗣"], childName);
-            return {
-              目标角色: name,
-              子嗣名称: childName,
-              子嗣键: childKey,
-              变量写入路径: rolePageVariablePath(name, "子嗣"),
-              成功时目标子嗣根: hypnosisOffspringExpectedRoot(roleData, systemNow, childKey, childName)
-            };
-          });
-        }
         if (hypnosisFeatureUsesPersonCount(feature)) {
           const roleNames = hypnosisSelectedRoleNames(feature, draft);
           detail["人数"] = hypnosisFeaturePersonCount(feature, draft);
@@ -12271,11 +12020,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         return detail;
       });
       const actionText = liteIslandHypnosisInfo() ? "追加催眠" : "启动催眠";
-      const pregnancyOnly = selected.length > 0 && selected.every((feature) => hypnosisFeatureIsPregnancyConfirmation(feature));
       const actionSceneHint = soundwaveMode
         ? "声波单体催眠时，{{user}}已经使用声波。"
-        : pregnancyOnly
-          ? "妊娠确认是{{user}}对自己的自我催眠，不需要目标看屏幕或声波。"
         : selectedNeedsTargetDelivery
           ? selectionMode
             ? "选择模式下，{{user}}已经让所有指定目标看3秒手机屏幕。"
@@ -12283,20 +12029,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           : "范围型催眠不需要指定目标或声波，前端已按范围命令暂存。";
       const settlementHint = "按钮已代表{{user}}实际行动：" + actionSceneHint +
         "结算顺序为条件满足->成功；条件不足、越级、强违人格或强剧情阻碍时才失败/部分失败。AI不要生成看屏不足、系统警告或事前劝退；失败和部分失败必须承担警戒、反感、旁人注意、主角可疑度或剧情阻碍等相应后果，不要无代价失败";
-      const hasRoleEffectCommand = commandList.some((item) => !["vip4_closed_space_common_sense", "vip4_closed_space_cognitive_block", "vip5_open_space_common_sense", "vip6_pregnancy_confirmation"].includes(String(item?.["指令ID"] || "")));
+      const hasRoleEffectCommand = commandList.some((item) => !["vip4_closed_space_common_sense", "vip4_closed_space_cognitive_block", "vip5_open_space_common_sense"].includes(String(item?.["指令ID"] || "")));
       const hasLocationRuleCommand = commandList.some((item) => item?.["指令ID"] === "vip5_open_space_common_sense");
-      const hasPregnancyCommand = commandList.some((item) => item?.["指令ID"] === "vip6_pregnancy_confirmation");
       const atomicResults = [];
       if (hasRoleEffectCommand) atomicResults.push("角色命令成功=同轮扣除实际MC能量+按中文指令及效果时效写入每个成功目标唯一对应的临时或永久催眠效果");
       if (hasLocationRuleCommand) atomicResults.push("开放空间命令成功=同轮扣除实际MC能量+仅写入本指令给出的/规则/<规则ID>");
-      if (hasPregnancyCommand) atomicResults.push("妊娠确认成功=同轮扣除实际星光点+仅写入指定角色的子嗣根，不写催眠效果");
       if (!atomicResults.length) atomicResults.push("范围命令按自身指令ID结算，不得伪造角色效果或地点规则");
       const operationPayload = {
         来源: "催眠APP",
         操作: actionText,
         功能列表: commandList,
         MC能量消耗: totalCost + "点",
-        施术模式: soundwaveMode ? "声波单体催眠" : pregnancyOnly ? "自我催眠" : selectedNeedsTargetDelivery ? "指定目标看3秒手机屏幕" : "范围型催眠",
+        施术模式: soundwaveMode ? "声波单体催眠" : selectedNeedsTargetDelivery ? "指定目标看3秒手机屏幕" : "范围型催眠",
         目标选择模式: selectionMode ? "实名选择" : selectedNeedsTargetDelivery ? "数字人数" : "范围命令",
         结算一致性: "成功是原子结果：" + atomicResults.join("；") + "。若余额、条件或唯一结果路径不成立，正文必须明确失败/部分失败；禁止只写成功剧情却漏掉对应资源与结果变量",
         结算提示: settlementHint
@@ -13164,9 +12908,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   const ROLE_PAGE_STRUCTURE_VERSION = 2;
   const ROLE_PAGE_SECTIONS = ["衣着", "信息", "状态", "事件", "敏感", "效果", "劣迹"];
-  // 七个基础页加上改造、物品、子嗣，共同组成十页人物变量合同。
-  // 三个根级动态对象不能在迁移时被误删。
-  const ROLE_EXTRA_ROOT_OBJECTS = ["改造", "物品", "子嗣"];
+  // 七个基础页加上改造、物品，共同组成人物变量合同。
+  // 两个根级动态对象不能在迁移时被误删。
+  const ROLE_EXTRA_ROOT_OBJECTS = ["改造", "物品"];
   const ROLE_STATE_FIELDS = ["好感度", "警戒度", "服从度", "性欲", "快感值", "是否派遣中"];
   const ROLE_EVENT_FIELDS = ["_事件记录", "至关重要记忆"];
   const ROLE_EFFECT_FIELDS = ["心理", "催眠扳机", "临时催眠效果", "永久催眠效果"];
@@ -13665,11 +13409,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         role["物品"] = normalizedItems;
         changed = true;
       }
-    }
-    const normalizedChildren = normalizeRoleChildren(role["子嗣"]);
-    if (JSON.stringify(normalizedChildren) !== JSON.stringify(role["子嗣"])) {
-      role["子嗣"] = normalizedChildren;
-      changed = true;
     }
     for (const area of ROLE_REMODEL_AREAS) {
       if (!Object.prototype.hasOwnProperty.call(role["改造"], area)) continue;
@@ -18074,7 +17813,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     { id: "effects", label: "效果" }
   ];
   const PERSON_PROFILE_PRIMARY_TABS = ["clothing", "info", "state", "events", "items"];
-  const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "bad-records", "remodel", "children"];
+  const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "bad-records", "remodel"];
   const ST_PROFILE_UI_STATE_STORAGE_PREFIX = "hypnoos:profile-ui:v2";
   const ST_PROFILE_NAV_NORMAL_ART = stAssetUrl("profile-ui/profile-nav-normal-v1.png");
   const ST_PROFILE_NAV_CONFIDENTIAL_ART = stAssetUrl("profile-ui/profile-nav-confidential-v1.png");
@@ -18921,8 +18660,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	      },
 	      "劣迹": isPlainObject(roleData?.["劣迹"]) ? encounterClone(roleData["劣迹"]) : { "性格": {}, "罪行": {} },
 	      "改造": isPlainObject(roleData?.["改造"]) ? encounterClone(roleData["改造"]) : {},
-	      "物品": isPlainObject(roleData?.["物品"]) ? encounterClone(roleData["物品"]) : { "持有": {} },
-	      "子嗣": isPlainObject(roleData?.["子嗣"]) ? encounterClone(roleData["子嗣"]) : defaultRoleChildren()
+	      "物品": isPlainObject(roleData?.["物品"]) ? encounterClone(roleData["物品"]) : { "持有": {} }
 	    };
 	  }
 
@@ -19086,7 +18824,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function activePersonProfileTab(page) {
     const value = page?.dataset?.profileTab || "clothing";
-    return PERSON_PROFILE_TABS.some((tab) => tab.id === value) || value === "bad-records" || value === "remodel" || value === "items" || value === "children" ? value : "clothing";
+    return PERSON_PROFILE_TABS.some((tab) => tab.id === value) || value === "bad-records" || value === "remodel" || value === "items" ? value : "clothing";
   }
 
   function profileNavSetForTab(tab = "clothing") {
@@ -19210,7 +18948,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       renderPersonProfilePage(page);
       return;
     }
-    if (PERSON_PROFILE_TABS.some((tab) => tab.id === action) || action === "bad-records" || action === "items" || action === "children") {
+    if (PERSON_PROFILE_TABS.some((tab) => tab.id === action) || action === "bad-records" || action === "items") {
       clearProfileDialogStates(page);
       closeProfileEventsMode(page);
       if (action === "bad-records") {
@@ -19227,7 +18965,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       if (action === "items") {
         page.dataset.profileItemsSegment = "inventory";
       }
-      if (action === "children") page.dataset.profileChildrenPage = String(Number(page.dataset.profileChildrenPage || 0) || 0);
       delete page.dataset.profilePickerOpen;
       writeProfileUiState(page);
       renderPersonProfilePage(page);
@@ -20009,7 +19746,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const normalLeft = '<span class="' + isActive("clothing").trim() + '">衣着</span><span class="' + isActive("info").trim() + '">信息</span><span class="' + isActive("state").trim() + '">状态</span>';
     const normalRight = '<span class="' + isActive("events").trim() + '">事件</span><span class="' + isActive("items").trim() + '">物品</span><span class="is-switch">深层</span>';
     const deepLeft = '<span class="' + isActive("sensitivity").trim() + '">敏感</span><span class="' + isActive("effects").trim() + '">效果</span><span class="' + isActive("bad-records").trim() + '">劣迹</span>';
-    const deepRight = '<span class="' + isActive("remodel").trim() + '">改造</span><span class="' + isActive("children").trim() + '">子嗣</span><span class="is-switch">常规</span>';
+    const deepRight = '<span class="' + isActive("remodel").trim() + '">改造</span><span class="is-switch">常规</span>';
     const previewFields = PERSON_PROFILE_CLOTHING_FIELDS;
     const lines = previewFields.map((field) => (
       '<div class="st-profile-mini-line">' +
@@ -20063,7 +19800,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const lockedDialogHtml = ["bad-records", "remodel", "remodel-immune"].includes(page.dataset.profileLockedDialog)
       ? renderProfileLockedDialog(page.dataset.profileLockedDialog)
       : "";
-    const todoDialogHtml = ["items", "children"].includes(page.dataset.profileTodoDialog)
+    const todoDialogHtml = page.dataset.profileTodoDialog === "items"
       ? renderProfileTodoDialog(page.dataset.profileTodoDialog)
       : "";
     const deleteDialogHtml = page.dataset.profileDeleteDialog === "true"
@@ -20179,7 +19916,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       : hospitalLineRemodelUnlocked()
         ? '<button class="st-person-tab ' + (!inEventsMode && activeTab === "remodel" ? "active" : "") + '" type="button" data-profile-action="remodel">改造</button>'
         : '<button class="st-person-tab is-locked" type="button" data-profile-locked-remodel aria-label="医院改造室未开放">改造</button>';
-    const childrenTabHtml = '<button class="st-person-tab ' + (!inEventsMode && activeTab === "children" ? "active" : "") + '" type="button" data-profile-action="children">子嗣</button>';
     const navSet = activeProfileNavSet(page);
     page.dataset.profileNavSet = navSet;
     const navSwitchHtml = '<button class="st-person-tab is-nav-switch" type="button" data-profile-action="toggle-tab-group">' + (navSet === "confidential" ? "常规" : "深层") + '</button>';
@@ -20187,7 +19923,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       ? profileTabButtonHtml({ id: "sensitivity", label: "敏感" }) + profileTabButtonHtml({ id: "effects", label: "效果" }) + badRecordsTabHtml()
       : profileTabButtonHtml({ id: "clothing", label: "衣着" }) + profileTabButtonHtml({ id: "info", label: "信息" }) + profileTabButtonHtml({ id: "state", label: "状态" });
     const rightTabsHtml = navSet === "confidential"
-      ? remodelTabHtml + childrenTabHtml + navSwitchHtml
+      ? remodelTabHtml + navSwitchHtml
       : eventsTabHtml + profileTabButtonHtml({ id: "items", label: "物品" }) + navSwitchHtml;
     const contentHtml = inEventsMode
       ? renderPersonEventsBookPage(page, roleName, roleData)
@@ -20197,8 +19933,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           ? renderProfileRemodelPanel(page, roleName)
         : activeTab === "items"
           ? renderProfileItemsPanel(page, roleName, roleData)
-        : activeTab === "children"
-          ? renderProfileChildrenPanel(page, roleName, roleData)
         : activeTab === "state"
         ? renderPersonStatePanel(roleName, roleData)
         : activeTab === "sensitivity"
@@ -20206,7 +19940,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           : activeTab === "effects"
           ? renderPersonEffectsPanel(page, roleName, roleData)
             : '<section class="st-person-lines">' + fieldsHtml + '</section>';
-    const activeTabLabel = inEventsMode ? "事件" : inBadRecordsMode ? "劣迹" : (activeTab === "remodel" ? "改造" : (activeTab === "items" ? "物品" : (activeTab === "children" ? "子嗣" : (PERSON_PROFILE_TABS.find((tab) => tab.id === activeTab)?.label || "档案"))));
+    const activeTabLabel = inEventsMode ? "事件" : inBadRecordsMode ? "劣迹" : (activeTab === "remodel" ? "改造" : (activeTab === "items" ? "物品" : (PERSON_PROFILE_TABS.find((tab) => tab.id === activeTab)?.label || "档案")));
     const canDeleteRole = roleName && !ST_LOCKED_PROFILE_ROLES.has(roleName);
     const canTransformOtaku = canRequestOtakuFemaleTransform(roleName, roleData);
     const profileActionNotice = page.dataset.profileTransformNotice || "";
@@ -20232,7 +19966,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const lockedDialogHtml = ["bad-records", "remodel", "remodel-immune"].includes(page.dataset.profileLockedDialog)
       ? renderProfileLockedDialog(page.dataset.profileLockedDialog)
       : "";
-    const todoDialogHtml = ["items", "children"].includes(page.dataset.profileTodoDialog)
+    const todoDialogHtml = page.dataset.profileTodoDialog === "items"
       ? renderProfileTodoDialog(page.dataset.profileTodoDialog)
       : "";
     const itemRefreshDialogHtml = page.dataset.profileItemRefreshDialog === "true"
@@ -23537,7 +23271,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       "var remodel = asObject(role['改造']); var remodelAreas = ['头', '躯干', '双臂', '双腿', '整体']; for (var remodelIndex = 0; remodelIndex < remodelAreas.length; remodelIndex += 1) { var remodelArea = remodelAreas[remodelIndex]; if (!hasOwn(remodel, remodelArea)) continue; var remodelDetails = asObject(remodel[remodelArea]); var remodelNames = Object.keys(remodelDetails); if (!remodelNames.length) roleLine('改造/' + remodelArea, '已解锁（当前无细分改造）'); for (var remodelNameIndex = 0; remodelNameIndex < remodelNames.length; remodelNameIndex += 1) { var remodelName = remodelNames[remodelNameIndex]; roleLine('改造/' + remodelArea + '/' + remodelName, remodelDetails[remodelName]); } }",
       "var roleItems = role['物品'] && typeof role['物品'] === 'object' && !Array.isArray(role['物品']) ? role['物品'] : {}; var heldItems = asObject(roleItems['持有']);",
       "for (var itemName in heldItems) { if (!hasOwn(heldItems, itemName)) continue; var rawItem = heldItems[itemName]; var itemObject = asObject(rawItem); var count = rawItem && typeof rawItem === 'object' ? rawItem['数量'] : 1; roleLine('物品/持有/' + itemName + '/数量', Math.max(1, Math.floor(Number(count) || 1))); roleLine('物品/持有/' + itemName + '/描述', itemObject['描述']); }",
-      "var childrenRoot = asObject(role['子嗣']); roleLine('子嗣/是否妊娠中', childrenRoot['是否妊娠中']); roleLine('子嗣/生产数量', childrenRoot['生产数量']); var childrenList = asObject(childrenRoot['子嗣列表']); for (var childKey in childrenList) { if (!hasOwn(childrenList, childKey)) continue; var child = asObject(childrenList[childKey]); var childFields = ['名称', '性别', '阶段', '妊娠开始日期', '出生日期', '角色名', '说明']; for (var childFieldIndex = 0; childFieldIndex < childFields.length; childFieldIndex += 1) { var childField = childFields[childFieldIndex]; roleLine('子嗣/子嗣列表/' + childKey + '/' + childField, child[childField]); } }",
       '}',
       '_%>'
     ]);
@@ -23611,7 +23344,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       .replaceAll(dollar + "警视厅线", "_警视厅线")
       .replaceAll(dollar + "医院线", "_医院线")
       .replaceAll(dollar + "灵异线", "_灵异线")
-      .replaceAll("变量结构需包含「档案」(姓名、年龄、社团/职业、身高、体重、三围、头发、面部、上衣、下衣)、「心理」(此刻想法)", "变量结构需包含十页对象：「衣着」(头发、面部、上衣、下衣)、「信息」(姓名、_年龄、社团或职业、身高、体重、三围或阴茎长度)、「效果/心理」(此刻想法)、「劣迹」、「改造」、「物品」(仅持有)、「子嗣」")
+      .replaceAll("变量结构需包含「档案」(姓名、年龄、社团/职业、身高、体重、三围、头发、面部、上衣、下衣)、「心理」(此刻想法)", "变量结构需包含人物对象：「衣着」(头发、面部、上衣、下衣)、「信息」(姓名、_年龄、社团或职业、身高、体重、三围或阴茎长度)、「效果/心理」(此刻想法)、「劣迹」、「改造」、「物品」(仅持有)")
       .replaceAll("档案使用「阴茎长度」替代「三围」", "「信息/阴茎长度」替代「信息/三围」")
       .replaceAll("档案改为女性格式，使用「三围」，不再使用「阴茎长度」", "「信息」改为女性格式，使用「三围」，不再使用「阴茎长度」");
   }
@@ -23693,8 +23426,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	        "罪行": { "盗窃": 0, "露出": 0, "私闯": 0, "伤害": 0, "淫乱": 0, "强奸": 0 }
 	      },
 	      "改造": defaultRoleRemodel(),
-	      "物品": { "持有": {} },
-	      "子嗣": defaultRoleChildren()
+	      "物品": { "持有": {} }
 	    };
 	  }
 
@@ -38572,8 +38304,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	    "效果": { "心理": "", "催眠扳机": {}, "临时催眠效果": {}, "永久催眠效果": {} },
 	    "劣迹": { "性格": {}, "罪行": {} },
 	    "改造": defaultRoleRemodel(),
-	    "物品": { "持有": {} },
-	    "子嗣": defaultRoleChildren()
+	    "物品": { "持有": {} }
 	  };
 	  const SETTINGS_ROLE_MALE_SENSITIVE_DEFAULTS = {
 	    "阴茎敏感度": 100,
@@ -38768,11 +38499,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (!ROLE_STATE_FIELDS.every((key) => Object.prototype.hasOwnProperty.call(role["状态"], key))) return false;
     if (!ROLE_EVENT_FIELDS.every((key) => Object.prototype.hasOwnProperty.call(role["事件"], key))) return false;
     if (!ROLE_EFFECT_FIELDS.every((key) => Object.prototype.hasOwnProperty.call(role["效果"], key))) return false;
-    return Object.keys(role).every((key) => ROLE_PAGE_SECTIONS.includes(key) || ROLE_EXTRA_ROOT_OBJECTS.includes(key))
+    return Object.keys(role).every((key) => ROLE_PAGE_SECTIONS.includes(key) || ROLE_EXTRA_ROOT_OBJECTS.includes(key) || key === "子嗣")
       && isPlainObject(role["劣迹"]["性格"]) && isPlainObject(role["劣迹"]["罪行"]) && ["盗窃", "露出", "私闯", "伤害", "淫乱", "强奸"].every((crime) => Number.isFinite(Number(role["劣迹"]["罪行"][crime])) && Number(role["劣迹"]["罪行"][crime]) >= 0)
       && isPlainObject(role["改造"]) && Object.keys(role["改造"]).every((area) => ROLE_REMODEL_AREAS.includes(area) && isPlainObject(role["改造"][area]))
-      && isPlainObject(role["物品"]) && isPlainObject(role["物品"]["持有"]) && !Object.prototype.hasOwnProperty.call(role["物品"], "刷新") && Object.values(role["物品"]["持有"]).every((item) => isPlainObject(item) && typeof item["描述"] === "string" && Number.isFinite(Number(item["数量"])) && Number(item["数量"]) >= 1)
-      && isPlainObject(role["子嗣"]);
+      && isPlainObject(role["物品"]) && isPlainObject(role["物品"]["持有"]) && !Object.prototype.hasOwnProperty.call(role["物品"], "刷新") && Object.values(role["物品"]["持有"]).every((item) => isPlainObject(item) && typeof item["描述"] === "string" && Number.isFinite(Number(item["数量"])) && Number(item["数量"]) >= 1);
   }
 
   function normalizeStatRolePages(stat, options = {}) {

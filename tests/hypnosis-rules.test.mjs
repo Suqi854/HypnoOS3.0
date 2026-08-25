@@ -18,12 +18,12 @@ test('v4.3 hypnosis ruleset is complete, versioned and immutable to callers', ()
   assert.equal(rules.schema, 'HypnosisRules/v1');
   assert.equal(rules.version, DEFAULT_HYPNOSIS_RULESET_VERSION);
   assert.equal(rules.source.sha256, '9A24EA8BDD96AC5031323B7BF1006D53EB91B56510ADA7C70A186B59D938C74A');
-  assert.equal(rules.commands.length, 36);
-  assert.equal(new Set(rules.commands.map((item) => item.id)).size, 36);
+  assert.equal(rules.commands.length, 35);
+  assert.equal(new Set(rules.commands.map((item) => item.id)).size, 35);
   assert.ok(rules.coreRules.length >= 20);
   assert.ok(rules.parameterRules.length >= 6);
   rules.commands.length = 0;
-  assert.equal(getHypnosisRules().commands.length, 36);
+  assert.equal(getHypnosisRules().commands.length, 35);
 });
 
 test('all v4.3 billing formulas and result categories remain locked', () => {
@@ -33,16 +33,14 @@ test('all v4.3 billing formulas and result categories remain locked', () => {
   assert.deepEqual(calculateHypnosisCost('vip1_memory_erase', { persons: 2, memoryMinutes: 30 }), { unit: 'mc', amount: 300 });
   assert.deepEqual(calculateHypnosisCost('vip4_closed_space_common_sense', { persons: 99, minutes: 12 }), { unit: 'mc', amount: 480 });
   assert.deepEqual(calculateHypnosisCost('vip5_open_space_common_sense', { persons: 99, minutes: 12 }), { unit: 'mc', amount: 1200 });
-  assert.deepEqual(calculateHypnosisCost('vip6_pregnancy_confirmation', { persons: 1 }), { unit: 'starlight', amount: 10 });
-  assert.throws(() => calculateHypnosisCost('vip6_pregnancy_confirmation', { persons: 2 }), /只允许1人次/);
   assert.deepEqual(calculateHypnosisBatchCost([
     { commandId: 'trial_basic', parameters: { persons: 1, minutes: 10 } },
-    { commandId: 'vip6_pregnancy_confirmation', parameters: { persons: 1 } },
-  ], { soundwave: true }), { mc: 150, starlight: 10 });
+  ], { soundwave: true }), { mc: 150, starlight: 0 });
+  assert.throws(() => calculateHypnosisCost('vip6_pregnancy_confirmation'), /未登记/);
   const rules = getHypnosisRules();
   assert.deepEqual(rules.commands.filter((item) => item.result === 'permanent-role').map((item) => item.id), ['vip5_permanent', 'vip5_excretion_control', 'vip5_lactation', 'vip5_fetish_implant', 'vip5_permanent_false_memory', 'vip5_permanent_personality']);
   assert.equal(rules.commands.find((item) => item.id === 'vip5_open_space_common_sense').result, 'temporary-open-space-rule');
-  assert.equal(rules.commands.find((item) => item.id === 'vip6_pregnancy_confirmation').result, 'offspring-only');
+  assert.equal(rules.commands.some((item) => item.id === 'vip6_pregnancy_confirmation'), false);
   assert.throws(() => calculateHypnosisCost('model_created_command'), /未登记/);
 });
 

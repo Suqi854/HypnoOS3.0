@@ -1,11 +1,12 @@
 const SCHEMA = 'HypnosisRules/v1';
-export const DEFAULT_HYPNOSIS_RULESET_VERSION = '4.3.0-hypnoos.1';
+export const DEFAULT_HYPNOSIS_RULESET_VERSION = '4.3.0-hypnoos.2';
 
 const SOURCE = Object.freeze({
   name: '催眠app二改 v4.3（louisHM 完全免费）',
   sha256: '9A24EA8BDD96AC5031323B7BF1006D53EB91B56510ADA7C70A186B59D938C74A',
   entryIds: Object.freeze([3, 8, 15, 20, 27, 40, 41, 57, 58, 210, 221, 223]),
   helperContracts: Object.freeze(['本轮操作执行闸门', '最新用户消息送模完整性守卫', 'MVU命令窄修复与角色根保护', 'MVU 当前变量结构']),
+  excludedFeatures: Object.freeze(['vip6_pregnancy_confirmation', 'role.子嗣']),
 });
 
 const command = (id, tier, title, billing, result, rule) => Object.freeze({ id, tier, title, billing: Object.freeze(billing), result, rule });
@@ -45,7 +46,6 @@ const COMMANDS = Object.freeze([
   command('vip5_permanent_false_memory', 'VIP5', '永久虚假记忆', { unit: 'mc', base: 1500, factors: ['persons'] }, 'permanent-role', '永久植入一段虚假记忆，只写永久催眠效果。'),
   command('vip5_permanent_personality', 'VIP5', '永久人格植入', { unit: 'mc', base: 3000, factors: ['persons'] }, 'permanent-role', '永久植入指定人格，只写永久催眠效果。'),
   command('vip5_open_space_common_sense', 'VIP5', '开放空间常识修改', { unit: 'mc', base: 100, factors: ['minutes'] }, 'temporary-open-space-rule', '修改开放空间范围内的临时规则或常识；不乘人数，不写角色催眠效果，只写指定规则路径。离开范围后不再作用，不能转化成角色残留效果。'),
-  command('vip6_pregnancy_confirmation', 'VIP6', '妊娠确认', { unit: 'starlight', base: 10, factors: ['persons'] }, 'offspring-only', '这是使用者对自己的自我催眠，只临时解除催眠APP对使用者生育能力的限制；每楼层只允许一个目标角色与一个不可改名的子嗣姓名。不消耗MC、不乘时间、不受声波费用影响、不催眠或强迫他人怀孕，也可能因关系、场景、身体条件或剧情风险失败。成功只写星光点与目标子嗣根。'),
 ]);
 
 const CORE_RULES = Object.freeze([
@@ -57,7 +57,7 @@ const CORE_RULES = Object.freeze([
   '实名模式只结算操作列出的角色。数字人数模式不预填姓名，人数只是成功上限；合法目标必须同时属于已有角色、本轮明确出现、本轮实际接受该指令施术、本轮明确成功的交集。旁观、回忆、通讯、只存在于世界书或变量、未实际受术者均排除。多条指令分别确定目标，最终路径不得出现星号。',
   '只有无需目标名单的空间范围型指令才属于范围催眠。封闭空间指令只按单一封闭空间叙事合同生效；开放空间常识修改只写/规则/<规则ID>，绝不写角色临时或永久催眠效果。',
   '结算顺序是条件满足则成功；权限、余额、目标状态、指令强度、世界规则或强剧情阻碍不成立时失败或部分失败。不得为了制造风险无理由失败。失败不扣费、不产生效果，并须体现与侵入性、地点、旁人、关系和警戒度相符的后果。',
-  '成功必须原子结算：角色指令的成功正文、实际MC扣除、每个成功目标唯一对应的临时或永久效果必须同轮成立；开放空间指令是成功正文、MC扣除和指定规则路径同轮成立；妊娠确认只结算星光点与子嗣。无法合法写入结果路径时正文必须失败或部分失败，禁止只写成功剧情、心理、好感或服从。',
+  '成功必须原子结算：角色指令的成功正文、实际MC扣除、每个成功目标唯一对应的临时或永久效果必须同轮成立；开放空间指令是成功正文、MC扣除和指定规则路径同轮成立。无法合法写入结果路径时正文必须失败或部分失败，禁止只写成功剧情、心理、好感或服从。',
   '临时效果动态键必须是2至10字简洁中文语义名，值必须是{效果,结束时间}对象，结束时间逐字采用本轮绝对故事时间YYYY年M月D日 HH:MM；永久效果值必须是{效果}对象且禁止时效字段。禁止用ID、VIP、英文下划线、时间戳或随机数作键；同名并存用可读中文序号。',
   '角色只有两类催眠依据：本轮明确成功的启动/追加催眠，或变量中尚未到期的临时效果/仍存在的永久效果。主动配合、高好感、高服从、人设倾向、地点规则、普通诱导、曾经催眠或打工状态都不能倒推出当前催眠。',
   '有效效果只在自身文本范围内生效。临时效果到期或由前端删除后只保留合理事后反应，不能继续强制；永久效果只有明确解除或删除才消失。新效果优先于冲突旧效果，不冲突者可并存；不得自动改名、合并、延期、永久化、删除或复燃。',
@@ -99,7 +99,7 @@ function validateRuleset(ruleset) {
   if (!String(ruleset.version || '').trim()) throw new Error('催眠规则缺少版本号');
   if (!Array.isArray(ruleset.coreRules) || ruleset.coreRules.length < 20) throw new Error('催眠核心规则不完整');
   if (!Array.isArray(ruleset.parameterRules) || ruleset.parameterRules.length < 6) throw new Error('催眠参数规则不完整');
-  if (!Array.isArray(ruleset.commands) || ruleset.commands.length !== 36) throw new Error('催眠指令必须完整包含36项');
+  if (!Array.isArray(ruleset.commands) || ruleset.commands.length !== 35) throw new Error('催眠指令必须完整包含35项');
   const ids = new Set();
   for (const item of ruleset.commands) {
     if (!item?.id || ids.has(item.id)) throw new Error(`催眠指令ID缺失或重复：${item?.id || '空'}`);
@@ -146,7 +146,6 @@ export function calculateHypnosisCost(commandId, parameters = {}, version = acti
     libido: Math.max(1, Math.min(500, Math.floor(Number(parameters.libido) || 1))),
     memoryMinutes: Math.max(1, Math.min(1440, Math.floor(Number(parameters.memoryMinutes) || 10))),
   };
-  if (commandId === 'vip6_pregnancy_confirmation' && values.persons !== 1) throw new Error('妊娠确认每个楼层只允许1人次');
   const amount = item.billing.factors.reduce((total, factor) => total * values[factor], Number(item.billing.base));
   return { unit: item.billing.unit, amount: Math.max(0, Math.floor(amount)) };
 }
@@ -179,7 +178,6 @@ export function buildHypnosisRulePrompt(version = activeVersion) {
     '- permanent-role：只写每个成功目标的/角色/<目标>/效果/永久催眠效果，禁止结束时间。',
     '- temporary-closed-space：只按单一封闭空间临时叙事合同生效，不扩张为开放空间规则或永久角色效果。',
     '- temporary-open-space-rule：只写本指令指定的/规则/<规则ID>，禁止写角色效果。',
-    '- offspring-only：只写实际星光点扣除和指定角色子嗣根，禁止写任何催眠效果。',
     '</结果分类>',
     '<输出硬检查>',
     '逐项确认：指令在白名单；VIP与余额成立；目标集合合法；费用未重复；正文成败与变量一致；临时/永久/范围分类正确；效果键与结束时间合法；最终JSON Patch无星号、无未授权路径、无重复前端写入。任一项不成立则该项失败或部分失败。',

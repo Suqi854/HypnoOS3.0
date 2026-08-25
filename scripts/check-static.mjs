@@ -16,15 +16,17 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 }
 
 const ui = await readFile(new URL('ui/index.html', root));
-const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === 'd66b755375766d6bd222122ea9a80639b8ad67d66756baae42accfd2c4260a2e', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
+const uiHash = createHash('sha256').update(uiText.replace(/\r\n/g, '\n')).digest('hex');
+expect(uiHash === 'a7e177cdb76858de7f2af3a6d7b7d39c4f3647009915f715a53a834c7e0d4aeb', `UI 基线哈希变化：${uiHash}`);
 const hypnosisRulesSource = await readFile(new URL('src/hypnosis-rules.js', root), 'utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
 expect(uiText.includes('玩家本轮输入'), '本轮输入应用没有采用玩家输入合同');
-expect(hypnosisRulesSource.includes("const SCHEMA = 'HypnosisRules/v1'") && hypnosisRulesSource.includes('commands.length !== 36'), '独立核心缺少版本化的完整36项催眠规则合同');
+expect(hypnosisRulesSource.includes("const SCHEMA = 'HypnosisRules/v1'") && hypnosisRulesSource.includes('commands.length !== 35'), '独立核心缺少已移除妊娠功能后的完整35项催眠规则合同');
 expect(hypnosisRulesSource.includes('buildHypnosisRulePrompt') && hypnosisRulesSource.includes('calculateHypnosisCost') && hypnosisRulesSource.includes('calculateHypnosisBatchCost'), '独立核心缺少催眠规则提示词或单项/批次计费接口');
+expect(hypnosisRulesSource.includes("excludedFeatures: Object.freeze(['vip6_pregnancy_confirmation', 'role.子嗣'])"), '催眠规则合同没有登记妊娠与子嗣功能删除项');
+expect(!uiText.includes('pregnancyButton +') && !uiText.includes('childrenTabHtml +') && !uiText.includes('activeTab === "children"\n          ? renderProfileChildrenPanel'), '妊娠按钮或角色档案子嗣入口仍在运行路径中');
 expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
 expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺少信息应用入口');
 expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
