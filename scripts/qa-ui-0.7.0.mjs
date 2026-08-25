@@ -6,6 +6,7 @@ const modules = process.env.CODEX_NODE_MODULES;
 if (!modules) throw new Error('请设置 CODEX_NODE_MODULES 为包含 playwright 的 node_modules 路径');
 const require = createRequire(import.meta.url);
 const { chromium } = require(join(modules, 'playwright'));
+const previewPort = Number(process.env.HYPNOOS_PREVIEW_PORT || 6633);
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.PLAYWRIGHT_BROWSER_EXECUTABLE || undefined,
@@ -46,7 +47,7 @@ async function openPhone(viewport, screenshotPrefix) {
       destroy() { globalThis.__hypnoosQaLegacyDestroyed += 1; },
     };
   });
-  await page.goto('http://127.0.0.1:6633/preview.html', { waitUntil: 'networkidle' });
+  await page.goto(`http://127.0.0.1:${previewPort}/preview.html`, { waitUntil: 'networkidle' });
   await page.evaluate(() => {
     const runtimeContext = {
       characterId: 0,
@@ -106,6 +107,32 @@ async function openPhone(viewport, screenshotPrefix) {
     throw error;
   }
 
+  const dockOrder = await frame.evaluate(() => Array.from(document.querySelectorAll('.st-home-dock-tile'))
+    .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)
+    .map((node) => node.dataset.homeAppId));
+  assert.deepEqual(dockOrder, ['settings', 'information', 'pending-input', 'hypno'], '底部固定应用顺序不正确');
+  const compactOrders = await frame.evaluate(() => Array.from(document.querySelectorAll('[data-home-app-id][data-st-home-dock="false"]'))
+    .map((node) => Number(node.style.order)).sort((a, b) => a - b));
+  assert.deepEqual(compactOrders, compactOrders.map((_, index) => index), '桌面应用排序留下了空位');
+
+  if (screenshotPrefix.includes('desktop')) {
+    const avatarTile = frame.locator('[data-home-app-id="avatar-library"]');
+    const helpTile = frame.locator('[data-home-app-id="help"]');
+    const avatarBefore = Number(await avatarTile.evaluate((node) => node.style.order));
+    const helpBefore = Number(await helpTile.evaluate((node) => node.style.order));
+    const avatarBox = await avatarTile.boundingBox();
+    const helpBox = await helpTile.boundingBox();
+    assert.ok(avatarBox && helpBox, '头像库或帮助应用无法取得拖拽坐标');
+    await page.mouse.move(avatarBox.x + avatarBox.width / 2, avatarBox.y + avatarBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(helpBox.x + helpBox.width / 2, helpBox.y + helpBox.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await frame.waitForTimeout(520);
+    assert.equal(Number(await avatarTile.evaluate((node) => node.style.order)), helpBefore, '头像库没有参与桌面拖拽排序');
+    assert.equal(Number(await helpTile.evaluate((node) => node.style.order)), avatarBefore, '拖拽目标没有完成位置交换');
+    assert.equal(await frame.locator('.st-avatar-library-app').count(), 0, '拖拽头像库时误触打开了应用');
+  }
+
   const hostMetrics = await page.evaluate(() => {
     const shadow = document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot;
     const wrap = shadow.querySelector('.phone-wrap');
@@ -160,7 +187,7 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(bridgeSnapshot.worldbook.entries['1'].comment, '[地点] QA测试地点');
   assert.equal(bridgeSnapshot.mvu.stat_data.系统.MC能量, 66);
 
-  await frame.locator('[aria-label="打开信息"]').click();
+  await frame.locator('[aria-label="打开信息"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.waitForSelector('.st-information-app');
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '信息应用仍叠加旧 React 顶栏');
   const informationText = await frame.locator('.st-information-app').innerText();
@@ -238,7 +265,7 @@ async function openPhone(viewport, screenshotPrefix) {
     assert.ok(Math.abs(restored.width - before.width) < 3, '缩放回归未恢复默认尺寸');
   }
 
-  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[aria-label="打开设置"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.getByRole('button', { name: '模型插头' }).click();
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '设置应用仍叠加旧 React 顶栏');
   const settingsText = await frame.locator('.st-settings-app').innerText();
@@ -272,7 +299,7 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
-  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[aria-label="打开设置"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   const regionSelect = frame.locator('[data-settings-region]');
   assert.ok((await regionSelect.boundingBox()).height <= 40, '通用模板选择框没有缩小');
   await frame.locator('.st-settings-profile-worldbooks-panel').scrollIntoViewIfNeeded();
@@ -343,8 +370,31 @@ async function openPhone(viewport, screenshotPrefix) {
       || 'global';
     localStorage.setItem(`hypnoos:favorite-roles:v1:${scope}`, JSON.stringify(['QA男性']));
   });
-  await frame.locator('[aria-label="打开催眠APP"]').click();
-  await frame.waitForSelector('.st-hypnosis-lite-app');
+  const hypnosisTile = frame.locator('[aria-label="打开催眠APP"]');
+  await hypnosisTile.dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
+  try {
+    await frame.waitForSelector('.st-hypnosis-lite-app', { timeout: 4000 });
+  } catch (error) {
+    console.error('hypnosisOpenFailure', await hypnosisTile.evaluate((node) => ({
+      id: node.dataset.homeAppId,
+      dock: node.dataset.stHomeDock,
+      connected: node.isConnected,
+      rect: node.getBoundingClientRect().toJSON(),
+      elementAtCenter: document.elementFromPoint(
+        node.getBoundingClientRect().left + node.getBoundingClientRect().width / 2,
+        node.getBoundingClientRect().top + node.getBoundingClientRect().height / 2,
+      )?.getAttribute?.('data-home-app-id') || '',
+      bodyStart: document.body?.innerText?.slice(0, 240) || '',
+      visibleClasses: Array.from(document.querySelectorAll('[class]'))
+        .filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return rect.width > 20 && rect.height > 20 && getComputedStyle(item).visibility !== 'hidden';
+        })
+        .slice(-20)
+        .map((item) => String(item.className).slice(0, 160)),
+    })));
+    throw error;
+  }
   await frame.locator('[data-hypnosis-delivery-mode="selection"]').click();
   const trialTier = frame.locator('[data-hypnosis-tier-details="TRIAL"]');
   if (await trialTier.getAttribute('open') === null) await trialTier.locator('summary').click();
@@ -379,8 +429,23 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.match(await frame.locator('.st-calendar-lite-app').innerText(), /QA开学日/);
   assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '日历被统一卡片页覆盖');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-calendar-original-ui.png`, fullPage: true });
+  await frame.locator('.st-calendar-lite-app .st-lite-body').evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  const timetableToggle = frame.locator('[data-calendar-timetable-toggle]');
+  assert.equal(await timetableToggle.getAttribute('aria-pressed'), 'true');
+  await timetableToggle.click();
+  await frame.waitForFunction(() => document.querySelector('[data-calendar-timetable-toggle]')?.getAttribute('aria-pressed') === 'false');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-calendar-timetable-toggle.png`, fullPage: true });
   await frame.locator('.st-calendar-lite-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  await frame.waitForFunction(() => !document.querySelector('[data-home-app-id="timetable"]'));
+  const hiddenCompactOrders = await frame.evaluate(() => Array.from(document.querySelectorAll('[data-home-app-id][data-st-home-dock="false"]'))
+    .map((node) => Number(node.style.order)).sort((a, b) => a - b));
+  assert.deepEqual(hiddenCompactOrders, hiddenCompactOrders.map((_, index) => index), '隐藏课程表后桌面留下了空位');
+  await frame.locator('[aria-label="打开日历"]').click();
+  await frame.locator('.st-calendar-lite-app .st-lite-body').evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  await frame.locator('[data-calendar-timetable-toggle]').click();
+  await frame.locator('.st-calendar-lite-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => Boolean(document.querySelector('[data-home-app-id="timetable"]')));
 
   await frame.locator('[aria-label="打开课程表"]').click();
   await frame.waitForSelector('.st-timetable-app .st-tt-week');
@@ -400,7 +465,15 @@ async function openPhone(viewport, screenshotPrefix) {
 
   await frame.locator('[aria-label="打开成就和任务"]').click();
   await frame.waitForSelector('.st-reward-app .st-graph-tabs');
-  assert.match(await frame.locator('.st-reward-app').textContent(), /校园观察者/);
+  const rewardText = await frame.locator('.st-reward-app').textContent();
+  assert.match(rewardText, /QA女性/, '成就没有根据女性档案生成');
+  assert.doesNotMatch(rewardText, /QA男性|校园观察者/, '成就仍混入男性或旧世界书固定内容');
+  await frame.locator('[data-reward-tab="quests"]').click();
+  const questText = await frame.locator('.st-reward-app').textContent();
+  assert.match(questText, /QA女性/, '任务没有根据女性档案生成');
+  assert.doesNotMatch(questText, /QA男性/, '任务混入男性档案角色');
+  await frame.locator('[data-reward-tab="new"]').click();
+  assert.match(await frame.locator('.st-reward-app').textContent(), /QA女性/, '每日生成没有使用女性档案目标');
   assert.equal(await frame.locator('.st-adaptive-world-app').count(), 0, '任务与成就被统一卡片页覆盖');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-rewards-original-ui.png`, fullPage: true });
   await frame.locator('.st-reward-app [data-lite-action="back"]').click();
@@ -412,7 +485,7 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.locator('.st-monitor-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
-  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[aria-label="打开设置"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.locator('[data-settings-cheat-key]').fill('123456');
   await frame.getByRole('button', { name: '开启作弊模式' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('作弊模式未解锁：密钥错误'));
@@ -432,13 +505,13 @@ async function openPhone(viewport, screenshotPrefix) {
   }), { money: 3456, starlight: 12, energy: 66, vip: '' }, '开启作弊模式修改了原始MVU资源或VIP变量');
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
-  await frame.locator('[aria-label="打开信息"]').click();
+  await frame.locator('[aria-label="打开信息"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.waitForSelector('.st-information-app');
   const cheatResourceValues = await frame.locator('.st-information-resource strong').allTextContents();
   assert.deepEqual(cheatResourceValues, ['∞', '∞', '∞'], '信息应用没有把三项资源显示为无限');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-cheat-resources.png`, fullPage: true });
   await frame.locator('.st-information-app [data-lite-action="back"]').click();
-  await frame.locator('[aria-label="打开催眠APP"]').click();
+  await frame.locator('[aria-label="打开催眠APP"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.waitForSelector('.st-hypnosis-lite-app');
   const cheatHypnosisText = await frame.locator('.st-hypnosis-lite-app').innerText();
   assert.match(cheatHypnosisText, /MC能量\s*∞\s*\/\s*∞/);
@@ -459,7 +532,7 @@ async function openPhone(viewport, screenshotPrefix) {
     return { money: system.持有零花钱, starlight: system.星光点, energy: system.MC能量 };
   }), { money: 3456, starlight: 12, energy: 66 }, '作弊模式下实际使用催眠指令改写了原始资源');
   await frame.locator('.st-hypnosis-lite-app [data-lite-action="back"]').click();
-  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[aria-label="打开设置"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.getByRole('button', { name: '作弊模式开启中' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('作弊模式已关闭'));
   assert.deepEqual(await page.evaluate(() => {
@@ -482,7 +555,7 @@ async function openPhone(viewport, screenshotPrefix) {
     stale.textContent = 'MC能量 25 / 25 VIP0';
     root.appendChild(stale);
   });
-  await frame.locator('[aria-label="打开本轮输入"]').click();
+  await frame.locator('[aria-label="打开本轮输入"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.waitForSelector('.st-operation-phone-app [data-operation-note]');
   assert.equal(await frame.locator('.st-react-clean-chrome').count(), 0, '本轮输入仍残留 MC 能量顶栏');
   const input = frame.locator('.st-operation-phone-app [data-operation-note]');
@@ -508,7 +581,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.7-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.7-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.8-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.8-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

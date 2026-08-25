@@ -4895,6 +4895,7 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-timetable-app .st-tt-rhythm{padding:8px;border-radius:8px}
 .st-timetable-app .st-tt-rhythm-item b,.st-timetable-app .st-tt-rhythm-item i{color:rgba(61,47,37,.68)}
 .st-timetable-app .st-tt-rhythm-item span:before,.st-timetable-app .st-tt-rhythm-item span:after{background:rgba(146,64,14,.34)}
+.st-cal-timetable-toggle{display:grid;gap:7px;border:1px solid rgba(61,47,37,.18);background:rgba(247,241,229,.92);padding:10px}.st-cal-timetable-toggle strong{color:#241f1b;font-size:13px}.st-cal-timetable-toggle p{margin:0;color:rgba(61,47,37,.68);font-size:10px;line-height:1.5}.st-cal-timetable-toggle button{width:100%;min-height:38px;border:2px solid #202020;background:#efe9dc;color:#151515;font-size:12px;font-weight:950;cursor:pointer;box-shadow:3px 3px 0 #ed1831}.st-cal-timetable-toggle button[aria-pressed="true"]{background:#202020;color:#fff}.st-cal-timetable-status{margin:0;color:#a6192e;font-size:10px;font-weight:900}
 [data-home-app-id] *{pointer-events:none}
 @media (max-width:420px){.st-mchan-header{padding-top:9px}.st-mchan-board{padding:7px 10px}.st-mchan-content.is-detail{padding:10px}}
 `;
@@ -4946,6 +4947,10 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-app-island.is-status .st-home-hypnosis-scroll span{color:rgba(165,243,252,.86)}
 .st-app-island.is-hypnosis .st-home-hypnosis-scroll span{color:rgba(226,232,240,.76)}
 .st-home-hypnosis-scroll::-webkit-scrollbar{display:none}
+.st-home-layout-grid{padding-bottom:104px!important}
+.st-home-dock-tile{position:absolute!important;z-index:5!important;bottom:18px!important;width:22%!important;min-height:84px!important;margin:0!important}
+.st-home-dock-tile[data-home-app-id="settings"]{left:3%!important}.st-home-dock-tile[data-home-app-id="information"]{left:27%!important}.st-home-dock-tile[data-home-app-id="pending-input"]{left:51%!important}.st-home-dock-tile[data-home-app-id="hypno"]{left:75%!important}
+.st-home-drag-source{opacity:.56!important;background:rgba(255,255,255,.08)!important}.st-home-drag-target{filter:drop-shadow(0 0 14px rgba(103,232,249,.52))!important;background:rgba(34,211,238,.12)!important;box-shadow:inset 0 0 0 1px rgba(103,232,249,.48)!important}
 .st-custom-icon-box{background:transparent!important;box-shadow:none!important;overflow:visible!important}
 .st-custom-icon-box>svg:not(.st-custom-app-icon){display:none!important}
 .st-custom-app-icon{width:100%;height:100%;display:block;border-radius:inherit;filter:drop-shadow(0 10px 18px rgba(0,0,0,.22))}
@@ -9943,27 +9948,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function getConfiguredAchievements() {
-    const adaptive = adaptiveRewardConfig();
-    if (adaptive?.achievements?.length) return adaptive.achievements;
-    try {
-      const list = globalThis.__HYPNOOS_GET_CONFIGURED_ACHIEVEMENTS__?.();
-      if (Array.isArray(list)) return list;
-    } catch {}
-    const db = globalThis.__ST_HYPNOOS_REWARD_DATABASE__;
-    const list = Array.isArray(db?.achievements) ? db.achievements : [];
-    return list.map(normalizeConfiguredAchievement).filter((item) => item.id && item.title);
+    return rewardFemaleArchiveAchievements();
   }
 
   function getConfiguredQuests() {
-    const adaptive = adaptiveRewardConfig();
-    if (adaptive?.quests?.length) return adaptive.quests;
-    try {
-      const list = globalThis.__HYPNOOS_GET_CONFIGURED_QUESTS__?.();
-      if (Array.isArray(list)) return list;
-    } catch {}
-    const db = globalThis.__ST_HYPNOOS_REWARD_DATABASE__;
-    const list = Array.isArray(db?.quests) ? db.quests : [];
-    return list.map(normalizeConfiguredQuest).filter((item) => item.id && item.name);
+    return rewardFemaleArchiveQuests();
   }
 
   function pendingOperationHas(source, operationPattern, id, title) {
@@ -10753,11 +10742,65 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function rewardDailyQuestCandidates(roleMap, system) {
     const roleNames = Object.keys(roleMap || {}).filter((name) => String(name || "").trim());
-    const fallbackNames = Array.isArray(DEFAULT_ROLE_NAMES) ? DEFAULT_ROLE_NAMES.filter(Boolean) : [];
-    const sourceNames = roleNames.length ? roleNames : fallbackNames;
-    return Array.from(new Set(sourceNames))
+    return Array.from(new Set(roleNames))
       .filter((name) => isFemaleRole(name, roleMap?.[name]))
-      .sort((a, b) => String(a).localeCompare(String(b), "zh-Hans-CN"));
+      .sort((a, b) => {
+        const favoriteDelta = Number(isFavoriteRoleName(b)) - Number(isFavoriteRoleName(a));
+        return favoriteDelta || String(a).localeCompare(String(b), "zh-Hans-CN");
+      });
+  }
+
+  function rewardFemaleArchiveEntries() {
+    const roles = getStatsRoles();
+    return rewardDailyQuestCandidates(roles, getSystemState()).map((name) => ({
+      name,
+      role: isPlainObject(roles?.[name]) ? roles[name] : {}
+    }));
+  }
+
+  function rewardFemaleArchiveAchievements() {
+    return rewardFemaleArchiveEntries().flatMap(({ name, role }) => [50, 100].map((threshold) => ({
+      id: "archive-achievement-" + rewardHashText(name + "\u0001" + threshold).toString(36),
+      title: threshold === 100 ? name + " · 深度羁绊" : name + " · 关系进展",
+      description: name + "好感度达到 " + threshold + "。",
+      rewardMoney: threshold === 100 ? 10 : 5,
+      rewardStarlight: threshold === 100 ? 10 : 5,
+      rewardItems: [],
+      targetRole: name,
+      checkCondition: () => Number(roleStateValue(getStatsRoles()?.[name] || role, "好感度", 0)) >= threshold
+    })));
+  }
+
+  function rewardFemaleArchiveQuests() {
+    return rewardFemaleArchiveEntries().map(({ name, role }, index) => {
+      const profile = roleProfileData(name, role);
+      const identity = firstNonEmptyText(profile["社团/职业"], profile["身份"], "当前身份");
+      const variants = [
+        { suffix: "主动协助", condition: "让" + name + "结合她的" + identity + "身份，主动帮助你完成一件当前剧情中可客观确认的事情。" },
+        { suffix: "信任突破", condition: "让" + name + "在清楚当前处境的情况下，主动向你透露一项此前不会轻易说出的真实想法或秘密。" },
+        { suffix: "反常选择", condition: "让" + name + "在当前剧情中主动做出一次明显偏离她平时习惯、且由她亲自完成的可验证选择。" }
+      ];
+      const variant = variants[index % variants.length];
+      return {
+        id: "archive-quest-" + rewardHashText(name + "\u0001" + variant.suffix).toString(36),
+        name: name + " · " + variant.suffix,
+        condition: variant.condition,
+        rewardMoney: 5,
+        rewardStarlight: 5,
+        rewardItems: [],
+        targetRole: name
+      };
+    });
+  }
+
+  function rewardItemFemaleArchiveTarget(item) {
+    const entries = rewardFemaleArchiveEntries();
+    if (!entries.length) return "";
+    const allowed = new Set(entries.map((entry) => entry.name));
+    const explicit = firstNonEmptyText(item?.dailyQuestTarget, item?.targetRole, item?.["任务目标"], item?.["目标角色"]);
+    if (explicit) return allowed.has(explicit) ? explicit : "";
+    const text = [item?.title, item?.name, item?.description, item?.condition].map((value) => String(value || "")).join("\n");
+    return entries.find((entry) => text.includes(entry.name))?.name || "";
   }
 
   function rewardTargetRoleSummary(role) {
@@ -10783,10 +10826,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function rewardDailyQuestTarget(system = getSystemState()) {
-    const variables = getLatestStatDataSync() || {};
-    const roleMap = variables["角色"] && typeof variables["角色"] === "object" && !Array.isArray(variables["角色"])
-      ? variables["角色"]
-      : {};
+    const roleMap = getStatsRoles();
     const candidates = rewardDailyQuestCandidates(roleMap, system);
     if (!candidates.length) return null;
     const dateKey = rewardCurrentDateKey(system);
@@ -10877,6 +10917,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const rows = [];
     for (const candidate of Object.values(state?.dailyQuestCandidates || {})) {
       if (!candidate?.id || !candidate?.title || !candidate?.description) continue;
+      if (!rewardItemFemaleArchiveTarget(candidate)) continue;
       if (rewardDailyQuestAlreadyUsed(candidate.dailyQuestDate, candidate.dailyQuestChatName)) continue;
       rows.push({
         ...candidate,
@@ -10917,6 +10958,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     for (const item of taskByTitle.values()) {
       if (item.status === "CLAIMED") continue;
       if (isFrontendQuestClaimed(state, item)) continue;
+      if (!rewardItemFemaleArchiveTarget(item)) continue;
       const pendingCancel = pendingOperationHas("成就和任务", /取消任务|取消接受任务/, item.id, item.title);
       const pendingClaim = pendingOperationHas("成就和任务", /领取任务奖励/, item.id, item.title);
       if (pendingCancel || pendingClaim) continue;
@@ -17536,6 +17578,28 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     '</div>';
   }
 
+  const ST_TIMETABLE_VISIBLE_STORAGE_PREFIX = "hypnoos:timetable-visible:v1";
+
+  function timetableVisibilityStorageKey() {
+    return ST_TIMETABLE_VISIBLE_STORAGE_PREFIX + ":" + roleFavoriteStorageScope();
+  }
+
+  function timetableAppEnabled() {
+    try {
+      const stored = localStorage.getItem(timetableVisibilityStorageKey());
+      return stored === null ? true : stored === "true";
+    } catch {
+      return true;
+    }
+  }
+
+  function setTimetableAppEnabled(enabled) {
+    const next = Boolean(enabled);
+    try { localStorage.setItem(timetableVisibilityStorageKey(), String(next)); } catch {}
+    window.dispatchEvent(new CustomEvent("HYPNOOS_TIMETABLE_VISIBILITY_CHANGED", { detail: { enabled: next } }));
+    return next;
+  }
+
   function renderCalendarMonthGrid(parsedDate, actualDate = parsedDate, selectedDate = parsedDate) {
     if (!parsedDate) return '<div class="st-cal-month-head"><strong>日期格式异常</strong><span>请使用完整年份</span></div>';
     const year = parsedDate.year;
@@ -17583,6 +17647,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const slot = routineSlot(minutesFromTimeText(timeText), weekday, parsedDate);
     const special = specialDayForDate(parsedDate);
     const events = upcomingSpecialDays(parsedDate);
+    const timetableEnabled = timetableAppEnabled();
     const eventsHtml = events.map((event) => (
       '<article class="st-cal-event">' +
         '<time>' + escapeHtml(specialDateLabel(event)) + '</time>' +
@@ -17608,6 +17673,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         renderCalendarDayDetail(selectedDate, parsedDate) +
         '<div class="st-cal-section-title">近期特殊日期</div>' +
         '<section class="st-cal-events">' + (eventsHtml || '<article class="st-cal-event"><time>--</time><div><strong>暂无特殊日期</strong><span>按普通日程推进</span></div></article>') + '</section>' +
+        '<section class="st-lite-card st-cal-timetable-toggle">' +
+          '<strong>课程表应用</strong>' +
+          '<p>' + escapeHtml(timetableEnabled ? "当前已启用，手机桌面会显示课程表应用。" : "当前未启用，手机桌面不会显示课程表应用。") + '</p>' +
+          '<button type="button" data-calendar-timetable-toggle aria-pressed="' + (timetableEnabled ? "true" : "false") + '">' + escapeHtml(timetableEnabled ? "停用课程表" : "启用课程表") + '</button>' +
+          (page.dataset.calendarTimetableStatus ? '<p class="st-cal-timetable-status" role="status" aria-live="polite">' + escapeHtml(page.dataset.calendarTimetableStatus) + '</p>' : '') +
+        '</section>' +
       '</main>';
     bindLiteHeader(page, () => renderLiteCalendarPage(page));
     page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => {
@@ -17632,6 +17703,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       page.dataset.calendarSelectedYear = "";
       page.dataset.calendarSelectedMonth = "";
       page.dataset.calendarSelectedDay = "";
+      rerenderLitePagePreservingBodyScroll(page, () => renderLiteCalendarPage(page));
+    });
+    page.querySelector("[data-calendar-timetable-toggle]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      const enabled = setTimetableAppEnabled(!timetableAppEnabled());
+      page.dataset.calendarTimetableStatus = enabled ? "课程表应用已显示。" : "课程表应用已隐藏。";
+      patchHomeTile();
       rerenderLitePagePreservingBodyScroll(page, () => renderLiteCalendarPage(page));
     });
   }
@@ -42278,9 +42356,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     const parent = calendarTile.parentElement;
     if (!parent) return;
+    const timetableEnabled = timetableAppEnabled();
     let timetableTile = dedupeHomeTilesByText("课程表") || parent.querySelector('[data-st-timetable-tile="true"]');
+    if (!timetableEnabled && timetableTile) {
+      timetableTile.remove();
+      timetableTile = null;
+    }
     let createdTimetable = false;
-    if (!timetableTile) {
+    if (timetableEnabled && !timetableTile) {
       timetableTile = calendarTile.cloneNode(true);
       createdTimetable = true;
       timetableTile.dataset.stLiteCalendarPatched = "";
@@ -42288,18 +42371,21 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       timetableTile.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
       calendarTile.insertAdjacentElement("afterend", timetableTile);
     }
-    timetableTile.dataset.stTimetableTile = "true";
-    if (createdTimetable) setHomeTileIcon(timetableTile, ST_APP_ICONS.timetable, "课程表");
-    bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", openTimetablePage);
+    if (timetableTile) {
+      timetableTile.dataset.stTimetableTile = "true";
+      timetableTile.dataset.homeAppId = "timetable";
+      if (createdTimetable) setHomeTileIcon(timetableTile, ST_APP_ICONS.timetable, "课程表");
+      bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", openTimetablePage);
+    }
     let clockTile = dedupeHomeTilesByText("时钟") || parent.querySelector('[data-st-clock-tile="true"]');
     let createdClock = false;
     if (!clockTile) {
-      clockTile = timetableTile.cloneNode(true);
+      clockTile = (timetableTile || calendarTile).cloneNode(true);
       createdClock = true;
       clockTile.removeAttribute("data-st-timetable-tile");
       setHomeTileLabel(clockTile, "时钟");
       clockTile.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
-      timetableTile.insertAdjacentElement("afterend", clockTile);
+      (timetableTile || calendarTile).insertAdjacentElement("afterend", clockTile);
     }
     clockTile.dataset.stClockTile = "true";
     clockTile.removeAttribute("data-st-timetable-tile");
@@ -42329,7 +42415,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       { label: "设置", flag: "stSettingsLitePatched", aria: "打开设置", open: openSettingsPage }
     ];
     for (const spec of specs) {
-      const tile = findHomeTileByText(spec.label);
+      let tile = findHomeTileByText(spec.label);
       if (!tile || tile.dataset[spec.flag] === "true") continue;
       tile.dataset[spec.flag] = "true";
       tile.setAttribute("aria-label", spec.aria);
@@ -42420,6 +42506,166 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
   }
 
+  const ST_HOME_LAYOUT_ORDER_KEY = "hypnoos:home-app-order:v1";
+  const ST_HOME_DOCK_IDS = ["settings", "information", "pending-input", "hypno"];
+  let stHomeLayoutDrag = null;
+  let stHomeLayoutSuppressClickUntil = 0;
+  let stHomeDockPointerOpenedUntil = 0;
+
+  function homeLayoutTiles(parent) {
+    return Array.from(parent?.children || []).filter((node) => node?.dataset?.homeAppId);
+  }
+
+  function readHomeLayoutOrder() {
+    try {
+      const value = JSON.parse(localStorage.getItem(ST_HOME_LAYOUT_ORDER_KEY) || "[]");
+      return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function normalizeHomeLayoutOrder(parent, requested = readHomeLayoutOrder()) {
+    const available = homeLayoutTiles(parent)
+      .map((tile) => tile.dataset.homeAppId)
+      .filter((id) => id && !ST_HOME_DOCK_IDS.includes(id));
+    const availableSet = new Set(available);
+    const result = [];
+    for (const id of requested || []) {
+      if (availableSet.has(id) && !result.includes(id)) result.push(id);
+    }
+    for (const id of available) {
+      if (!result.includes(id)) result.push(id);
+    }
+    return result;
+  }
+
+  function persistHomeLayoutOrder(parent, order) {
+    const normalized = normalizeHomeLayoutOrder(parent, order);
+    try { localStorage.setItem(ST_HOME_LAYOUT_ORDER_KEY, JSON.stringify(normalized)); } catch {}
+    return normalized;
+  }
+
+  function clearHomeLayoutDragClasses(parent) {
+    homeLayoutTiles(parent).forEach((tile) => tile.classList.remove("st-home-drag-source", "st-home-drag-target"));
+  }
+
+  function finishHomeLayoutDrag(event, parent) {
+    const drag = stHomeLayoutDrag;
+    if (!drag || (event?.pointerId !== undefined && drag.pointerId !== event.pointerId)) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (drag.moved && drag.targetId && drag.targetId !== drag.id) {
+      const order = normalizeHomeLayoutOrder(parent);
+      const fromIndex = order.indexOf(drag.id);
+      const toIndex = order.indexOf(drag.targetId);
+      if (fromIndex >= 0 && toIndex >= 0) {
+        [order[fromIndex], order[toIndex]] = [order[toIndex], order[fromIndex]];
+        persistHomeLayoutOrder(parent, order);
+      }
+      stHomeLayoutSuppressClickUntil = Date.now() + 420;
+    }
+    try { drag.tile?.releasePointerCapture?.(drag.pointerId); } catch {}
+    clearHomeLayoutDragClasses(parent);
+    stHomeLayoutDrag = null;
+    applyHomeLayout(parent);
+  }
+
+  function bindHomeLayoutDrag(tile, parent) {
+    if (!tile || tile.dataset.stHomeLayoutDragBound === "true") return;
+    tile.dataset.stHomeLayoutDragBound = "true";
+    tile.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.stopPropagation();
+      if (ST_HOME_DOCK_IDS.includes(tile.dataset.homeAppId)) return;
+      stHomeLayoutDrag = {
+        id: tile.dataset.homeAppId,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        targetId: "",
+        tile
+      };
+      try { tile.setPointerCapture(event.pointerId); } catch {}
+    }, true);
+    tile.addEventListener("pointermove", (event) => {
+      const drag = stHomeLayoutDrag;
+      if (!drag || drag.pointerId !== event.pointerId || drag.tile !== tile) return;
+      event.stopPropagation();
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (!drag.moved && distance < 10) return;
+      drag.moved = true;
+      event.preventDefault();
+      clearHomeLayoutDragClasses(parent);
+      tile.classList.add("st-home-drag-source");
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-home-app-id]");
+      const targetId = String(target?.dataset?.homeAppId || "");
+      drag.targetId = targetId && targetId !== drag.id && !ST_HOME_DOCK_IDS.includes(targetId) ? targetId : "";
+      if (drag.targetId) target.classList.add("st-home-drag-target");
+    }, true);
+    tile.addEventListener("pointerup", (event) => finishHomeLayoutDrag(event, parent), true);
+    tile.addEventListener("pointercancel", (event) => finishHomeLayoutDrag(event, parent), true);
+  }
+
+  function applyHomeLayout(parent = findHomeTileByText("催眠APP")?.parentElement) {
+    if (!parent) return false;
+    const tiles = homeLayoutTiles(parent);
+    if (!tiles.length) return false;
+    parent.classList.add("st-home-layout-grid");
+    const order = persistHomeLayoutOrder(parent, readHomeLayoutOrder());
+    const orderIndex = new Map(order.map((id, index) => [id, index]));
+    for (const tile of tiles) {
+      const id = String(tile.dataset.homeAppId || "");
+      const docked = ST_HOME_DOCK_IDS.includes(id);
+      tile.classList.toggle("st-home-dock-tile", docked);
+      tile.dataset.stHomeDock = docked ? "true" : "false";
+      tile.style.order = docked ? "1000" : String(orderIndex.get(id) ?? order.length);
+      bindHomeLayoutDrag(tile, parent);
+    }
+    if (document.documentElement.dataset.stHomeDockClickGuard !== "true") {
+      document.documentElement.dataset.stHomeDockClickGuard = "true";
+      const activateDockTile = (tile) => {
+        const id = String(tile?.dataset?.homeAppId || "");
+        globalThis.__ST_HYPNOOS_LAST_REACT_APP__ = "";
+        if (id === "settings") openSettingsPage(tile);
+        else if (id === "information") openInformationPage(tile);
+        else if (id === "pending-input") openPendingInputPage(tile);
+        else if (id === "hypno") openHypnosisLitePage(tile);
+      };
+      window.addEventListener("pointerdown", (event) => {
+        const tile = event.target?.closest?.("[data-home-app-id]");
+        const id = String(tile?.dataset?.homeAppId || "");
+        if (!ST_HOME_DOCK_IDS.includes(id)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        stHomeDockPointerOpenedUntil = Date.now() + 700;
+        activateDockTile(tile);
+      }, true);
+      window.addEventListener("click", (event) => {
+        const tile = event.target?.closest?.("[data-home-app-id]");
+        const id = String(tile?.dataset?.homeAppId || "");
+        if (!ST_HOME_DOCK_IDS.includes(id)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (Date.now() >= stHomeDockPointerOpenedUntil) activateDockTile(tile);
+      }, true);
+    }
+    if (document.documentElement.dataset.stHomeLayoutClickGuard !== "true") {
+      document.documentElement.dataset.stHomeLayoutClickGuard = "true";
+      document.addEventListener("click", (event) => {
+        if (Date.now() >= stHomeLayoutSuppressClickUntil) return;
+        if (!event.target?.closest?.("[data-home-app-id]")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }, true);
+    }
+    return true;
+  }
+
   function patchHomeTile() {
     const root = findPhoneRoot(document.body);
     if (root && looksLikePhoneHome(root)) void applyHomeWallpaper(root);
@@ -42434,6 +42680,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     patchInformationTile();
     patchAvatarLibraryTile();
     patchAdaptiveWorldTiles();
+    applyHomeLayout();
     const labels = Array.from(document.querySelectorAll("span,button,div"))
       .filter((element) => !element.closest(".st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-help-app,.st-settings-app,.st-placeholder-app,.st-operation-phone-app,.st-avatar-library-app") && element.textContent?.trim() === "MC匿名版");
     for (const label of labels) {

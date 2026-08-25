@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === 'ec6470ab7dc984eb5d7844de097fd83d2b8911cc66147cf782bd76fd1fbc0bf0', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '0b512e09f0f23265ee8f9341c0fab919dc650b03831d758d88a056bf783f7742', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -32,6 +32,10 @@ expect(uiText.includes('return favorites.concat(female, male);'), '角色选择�
 expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');
 expect(uiText.includes('HypnoWorldAdaptation/v1') && uiText.includes('generateAdaptiveWorldbookProfile') && uiText.includes('data-settings-action="clear-adaptive-data"'), '世界类应用缺少世界书生成适配层');
 expect(uiText.includes('openTimetablePage(calendarTile)') || uiText.includes('openTimetablePage);'), '课程表没有恢复原始专属界面');
+expect(uiText.includes('data-calendar-timetable-toggle') && uiText.includes('timetableAppEnabled()'), '日历缺少课程表显示开关');
+expect(uiText.includes('const ST_HOME_DOCK_IDS = ["settings", "information", "pending-input", "hypno"]'), '底部固定应用顺序不正确');
+expect(uiText.includes('normalizeHomeLayoutOrder') && uiText.includes('bindHomeLayoutDrag'), '桌面缺少自动补位或拖动排序');
+expect(uiText.includes('rewardFemaleArchiveEntries') && uiText.includes('rewardItemFemaleArchiveTarget'), '成就任务没有限定女性档案角色');
 expect(uiText.includes('adaptiveTimetableBase()') && uiText.includes('adaptiveCalendarDays()'), '原始日历/课程表没有接入世界书适配数据');
 expect(uiText.includes('openMchanPage(tile)') && uiText.includes('adaptiveMchanState(defaultState())'), 'MC匿名版没有保持原UI并接入适配帖子');
 expect(uiText.includes('openRewardPage(null)') && uiText.includes('adaptiveRewardConfig()'), '任务与成就没有保持原UI并接入适配数据');
