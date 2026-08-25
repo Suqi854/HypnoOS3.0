@@ -17,12 +17,16 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '2c1f623192ac13d61bdf0036cd20ded99716e07ce582c97d28b356fa70c49418', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '5d5accddac591d676d4744281cabc9fef93b2404730f93d9e51fb5a145f158af', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
 expect(uiText.includes('玩家本轮输入'), '本轮输入应用没有采用玩家输入合同');
 expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
+expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺少信息应用入口');
+for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {
+  expect(uiText.includes(label), `文生文连接器缺少预设字段：${label}`);
+}
 expect(uiText.includes('removeReactChrome(root)'), '切换内部应用时没有清理旧 React 顶栏');
 expect(uiText.includes('#app>.w-full.flex.items-center.justify-center.p-2>div:first-child'), '手机前端缺少重复机壳消除规则');
 expect(!removedFeaturePattern.test(uiText), '手机前端不得残留已移除功能的运行代码');
@@ -30,6 +34,9 @@ const floatingHost = await readFile(new URL('public/floating-bootstrap.js', root
 for (const marker of ['data-phone-drag', 'pet-character-toggle', 'sidecar', 'launcher']) {
   expect(floatingHost.includes(marker), `4.3 悬浮宿主缺少关键能力：${marker}`);
 }
+expect((floatingHost.match(/data-phone-resize=/g) || []).length === 2, '悬浮宿主必须保留下方左右两个缩放热区');
+expect(floatingHost.includes('.sidecar{display:none!important}'), '外部信息挂件仍可能占用界面空间');
+expect(floatingHost.includes('savePhoneScale'), '手机缩放没有持久化');
 expect(floatingHost.includes("scrolling='no'"), '手机 iframe 必须关闭文档滚动条');
 expect(!floatingHost.includes('0 0 0 6px rgba(17,12,30,.72)'), '悬浮宿主仍包含额外 6px 黑色描边');
 expect(!removedFeaturePattern.test(floatingHost), '悬浮宿主不得残留已移除功能的按钮、同步或渲染代码');

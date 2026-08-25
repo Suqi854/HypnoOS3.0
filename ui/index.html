@@ -3243,7 +3243,8 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
     encounter: stInlineAppIcon("#f43f5e", '<path d="M24 55c0-8 5-13 12-13s12 5 12 13"/><circle cx="36" cy="29" r="8"/><path d="M16 25c5-8 12-12 20-12s15 4 20 12"/><path d="M55 13l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5"/>'),
     help: stInlineAppIcon("#64748b", '<circle cx="36" cy="36" r="21"/><path d="M29 29a7.5 7.5 0 0 1 14 3c0 5-7 5.5-7 11"/><path d="M36 50h.01"/>'),
     settings: stInlineAppIcon("#3f3f46", '<circle cx="36" cy="36" r="8"/><path d="M36 13v8"/><path d="M36 51v8"/><path d="M13 36h8"/><path d="M51 36h8"/><path d="m20 20 6 6"/><path d="m46 46 6 6"/><path d="m52 20-6 6"/><path d="m26 46-6 6"/>'),
-    pendingInput: stInlineAppIcon("#b45309", '<path d="M21 18h30v36H21z"/><path d="M28 28h16"/><path d="M28 36h16"/><path d="M28 44h9"/><circle cx="19" cy="28" r="2"/><circle cx="19" cy="36" r="2"/><circle cx="19" cy="44" r="2"/>')
+    pendingInput: stInlineAppIcon("#b45309", '<path d="M21 18h30v36H21z"/><path d="M28 28h16"/><path d="M28 36h16"/><path d="M28 44h9"/><circle cx="19" cy="28" r="2"/><circle cx="19" cy="36" r="2"/><circle cx="19" cy="44" r="2"/>'),
+    information: stInlineAppIcon("#0369a1", '<circle cx="36" cy="36" r="21"/><path d="M36 32v16"/><path d="M36 24h.01"/>')
   };
   const ST_DEFAULT_PROFILE_PHOTOS = {
     "西园寺爱丽莎": stAssetUrl("profiles/saionji-alisa.png"),
@@ -12280,6 +12281,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function renderCleanReactChrome(root, app, options) {
+    if (root?.querySelector?.(":scope > .st-lite-app")) {
+      removeReactChrome(root);
+      return;
+    }
     const system = getSystemState();
     const modes = liteIslandModes(options);
     const requested = root.dataset.stReactIslandMode || "app";
@@ -12336,6 +12341,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function renderReactAppIsland(root, app) {
+    if (root?.querySelector?.(":scope > .st-lite-app")) {
+      removeReactChrome(root);
+      return;
+    }
     const options = reactIslandAppOptions(app);
     if (!root || !options) {
       removeReactChrome(root);
@@ -38804,23 +38813,27 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function renderModelConnectorSettings(page) {
     const config = readModelConnectorConfig();
     const textSecretReady = Boolean(readModelConnectorSessionSecret("text"));
-    const profile = (kind, title, description, fields) => {
-      const value = config[kind];
-      return '<section class="st-settings-panel st-model-connector" data-connector-profile="' + kind + '">' +
-        '<div class="st-model-connector-head"><div><h3>' + escapeHtml(title) + '</h3><p>' + escapeHtml(description) + '</p></div>' +
-          '<label class="st-model-connector-switch"><input type="checkbox" data-connector-field="enabled" ' + (value.enabled ? "checked" : "") + '><span>' + (value.enabled ? "已启用" : "未启用") + '</span></label></div>' +
-        '<div class="st-model-connector-grid">' +
-          '<label><span>请求方式</span><select data-connector-field="mode"><option value="proxy"' + (value.mode === "proxy" ? " selected" : "") + '>SillyTavern 后端代理（推荐）</option><option value="direct"' + (value.mode === "direct" ? " selected" : "") + '>浏览器直连（仅同源或已开放 CORS）</option></select></label>' +
-          '<label><span>Endpoint</span><input data-connector-field="endpoint" value="' + escapeAttr(value.endpoint) + '" placeholder="OpenAI-compatible API 基址，如 https://example.com/v1"></label>' +
-          '<label><span>Model</span><input data-connector-field="model" value="' + escapeAttr(value.model) + '" placeholder="模型名"></label>' +
-          '<label><span>Secret Ref</span><input data-connector-field="secretRef" value="' + escapeAttr(value.secretRef) + '" placeholder="服务端密钥别名"></label>' +
-          '<label class="st-model-secret"><span>API Key（仅本次浏览器会话）</span><input type="password" data-connector-secret="' + kind + '" value="" placeholder="' + (textSecretReady ? "已保存；留空保持" : "不会写入备份或配置") + '"></label>' +
-          fields +
+    const value = config.text;
+    return '<section class="st-settings-panel st-model-connector st-model-preset-card" data-connector-profile="text">' +
+        '<div class="st-model-connector-head"><div><h3>API 预设</h3><p>文生文插头使用的独立 OpenAI 兼容配置。</p></div><label class="st-model-connector-switch"><input type="checkbox" data-connector-field="enabled" ' + (value.enabled ? "checked" : "") + '><span>' + (value.enabled ? "已启用" : "未启用") + '</span></label></div>' +
+        '<label class="st-model-preset-name"><span>预设名称</span><input data-connector-field="presetName" value="' + escapeAttr(value.presetName) + '" placeholder="例如：日常文生文"></label>' +
+        '<fieldset class="st-model-mode"><legend>连接方式</legend><label class="' + (value.mode === "proxy" ? "active" : "") + '"><input type="radio" name="st-text-mode" data-connector-field="mode" value="proxy" ' + (value.mode === "proxy" ? "checked" : "") + '>酒馆后端代理</label><label class="' + (value.mode === "direct" ? "active" : "") + '"><input type="radio" name="st-text-mode" data-connector-field="mode" value="direct" ' + (value.mode === "direct" ? "checked" : "") + '>自定义直连</label></fieldset>' +
+        '<div class="st-model-connector-grid st-model-api-fields">' +
+          '<label class="wide"><span>端点（基础 URL）</span><input type="url" data-connector-field="endpoint" value="' + escapeAttr(value.endpoint) + '" placeholder="https://example.com/v1"></label>' +
+          '<label class="wide st-model-secret"><span>API 密钥</span><input type="password" data-connector-secret="text" value="" placeholder="' + (textSecretReady ? "已保存于当前浏览器会话；留空保持" : "默认仅保留当前浏览器会话") + '"></label>' +
+          '<label class="wide"><span>模型名</span><input data-connector-field="model" value="' + escapeAttr(value.model) + '" placeholder="例如 deepseek-chat"></label>' +
+          '<label><span>最大回复长度</span><input type="number" min="64" max="200000" data-connector-field="maxTokens" value="' + value.maxTokens + '"></label>' +
+          '<label><span>温度</span><input type="number" step="0.1" min="0" max="2" data-connector-field="temperature" value="' + value.temperature + '"></label>' +
+          '<label><span>Top P</span><input type="number" step="0.05" min="0" max="1" data-connector-field="topP" value="' + value.topP + '"></label>' +
+          '<label><span>服务端密钥别名</span><input data-connector-field="secretRef" value="' + escapeAttr(value.secretRef) + '" placeholder="可选"></label>' +
+          '<label class="wide"><span>附加主体参数</span><textarea data-connector-field="additionalBody" placeholder="response_format:\n  type: json_object\ntop_k: 50">' + escapeHtml(value.additionalBody) + '</textarea><small>填写 YAML 风格对象或 JSON 对象，会合并到最终模型请求体。</small></label>' +
+          '<label class="wide"><span>排除主体参数</span><textarea data-connector-field="excludedBody" placeholder="top_p, reasoning_effort">' + escapeHtml(value.excludedBody) + '</textarea><small>用逗号、空格或换行分隔，将从最终模型请求体删除。</small></label>' +
+          '<label class="wide"><span>附加请求标头</span><textarea data-connector-field="additionalHeaders" placeholder="X-Custom-Header: value">' + escapeHtml(value.additionalHeaders) + '</textarea><small>每行一个 Header: Value；Authorization 仍由 API 密钥管理。</small></label>' +
         '</div>' +
-        '<div class="st-settings-actions is-three"><button type="button" class="st-settings-button primary" data-connector-save="' + kind + '">保存</button><button type="button" class="st-settings-button" data-connector-test="' + kind + '">测试连接</button><button type="button" class="st-settings-button danger" data-connector-clear-secret="' + kind + '">清除密钥</button></div>' +
-      '</section>';
-    };
-    return '<section class="st-settings-panel st-model-context-panel">' +
+        '<div class="st-settings-actions is-three"><button type="button" class="st-settings-button" data-connector-discard="text">放弃修改</button><button type="button" class="st-settings-button" data-connector-test="text">测试连接</button><button type="button" class="st-settings-button primary" data-connector-save="text">保存当前预设</button></div>' +
+        '<button type="button" class="st-settings-button danger st-model-clear-key" data-connector-clear-secret="text">清除密钥</button>' +
+      '</section>' +
+      '<section class="st-settings-panel st-model-context-panel">' +
         '<h3>上下文装配</h3><p>独立插头不写聊天或世界书；只有明确的前端功能会把结构化结果写入该功能独占的精确变量路径，例如人物档案的物品/持有。世界书仅抽取与当前地点、事件、角色和备注相关且已启用的条目。</p>' +
         '<div class="st-model-context-toggles">' +
           '<label><input type="checkbox" data-connector-context="story" ' + (config.context.story ? "checked" : "") + '>最近剧情</label>' +
@@ -38829,11 +38842,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '</div>' +
         '<textarea class="st-settings-code st-model-notes" data-connector-context-notes placeholder="长期备注；会加入地点、任务和人物物品等文生文提示词。">' + escapeHtml(config.context.notes) + '</textarea>' +
         '<button type="button" class="st-settings-button primary" data-connector-save-context>保存上下文设置</button>' +
-      '</section>' +
-      profile("text", "文生文插头", "用于新增地点、刷新角色物品等前端内容生成。外部接口会自动经 SillyTavern 后端转发，避免浏览器 CORS；Endpoint 填 OpenAI-compatible API 基址，不要重复填写 /chat/completions。",
-        '<label><span>Temperature</span><input type="number" step="0.1" min="0" max="2" data-connector-field="temperature" value="' + config.text.temperature + '"></label>' +
-        '<label><span>Top P</span><input type="number" step="0.05" min="0" max="1" data-connector-field="topP" value="' + config.text.topP + '"></label>' +
-        '<label><span>Max tokens</span><input type="number" min="64" max="8192" data-connector-field="maxTokens" value="' + config.text.maxTokens + '"></label>');
+      '</section>';
   }
 
   function readConnectorProfileForm(page, kind) {
@@ -38843,12 +38852,20 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     profile.querySelectorAll("[data-connector-field]").forEach((input) => {
       const key = input.getAttribute("data-connector-field");
       if (!key) return;
+      if (input.type === "radio" && !input.checked) return;
       config[kind][key] = input.type === "checkbox" ? input.checked : input.value;
     });
     return normalizeModelConnectorConfig(config);
   }
 
   function bindModelConnectorSettings(page) {
+    page.querySelectorAll("[data-connector-discard]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        settingsStopEvent(event);
+        page.dataset.settingsStatus = "已放弃未保存修改。";
+        renderSettingsPage(page);
+      });
+    });
     page.querySelector("[data-connector-save-context]")?.addEventListener("click", (event) => {
       settingsStopEvent(event);
       const config = readModelConnectorConfig();
@@ -39149,9 +39166,18 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     });
   }
 
+  function ensureModelPresetStyle() {
+    if (document.getElementById("st-model-preset-style")) return;
+    const style = document.createElement("style");
+    style.id = "st-model-preset-style";
+    style.textContent = `.st-model-preset-card{padding:13px}.st-model-preset-name{display:grid;gap:5px}.st-model-preset-name>span,.st-model-mode legend{color:#cbd5e1;font-size:11px;font-weight:900}.st-model-preset-name input{width:100%;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:10px;font-weight:750}.st-model-mode{margin:0;padding:0;border:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}.st-model-mode legend{grid-column:1/-1;margin-bottom:5px}.st-model-mode label{min-height:40px;border:1px solid rgba(148,163,184,.2);border-radius:9px;background:#151d2a;display:flex;align-items:center;justify-content:center;gap:7px;color:#cbd5e1;font-size:11px;font-weight:850}.st-model-mode label.active{border-color:#5eead4;background:#287b79;color:#071414}.st-model-mode input{position:absolute;opacity:0;pointer-events:none}.st-model-api-fields .wide{grid-column:1/-1}.st-model-api-fields label small{color:#77849a;font-size:9px;line-height:1.45}.st-model-api-fields textarea{min-height:82px}.st-model-clear-key{justify-self:start;width:auto!important;min-height:34px;padding:0 12px}`;
+    document.head.appendChild(style);
+  }
+
   function openSettingsPage(tile) {
     ensureStyle();
     ensurePhoneDarkThemeStyle();
+    ensureModelPresetStyle();
     const root = findPhoneRoot(tile);
     setPhoneActiveApp(root, "settings");
     root.style.position = root.style.position || "relative";
@@ -39191,6 +39217,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     { title: "监控", tag: "厕所", body: "查看男厕门位状态并发起派遣相关操作。" },
     { title: "打工", tag: "零工", body: "查看可接零工，按社畜值解锁更高级的短工；确认后前端只结算工资、社畜值与buff，年份、日期、时间、地点、事件以及打工过程均交给AI更新。" },
     { title: "邂逅", tag: "桃花运", body: "浏览角色包资料、定制角色并购买随机桃花运，也可查看邂逅商店。" },
+    { title: "信息", tag: "状态", body: "查看零花钱、星光点、MC能量、变量格式、桌宠人物和当前变量楼层。" },
     { title: "设置", tag: "迁移", body: "导出或导入指定前端存储，并检查当前MVU变量是否缺少常用字段。" }
   ];
 
@@ -39313,6 +39340,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         endpoint: "",
         model: "",
         secretRef: "",
+        presetName: "默认",
+        additionalBody: "",
+        excludedBody: "",
+        additionalHeaders: "",
         temperature: 0.7,
         topP: 1,
         maxTokens: 900
@@ -39343,9 +39374,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         endpoint: String(text.endpoint || ""),
         model: String(text.model || ""),
         secretRef: String(text.secretRef || ""),
+        presetName: String(text.presetName || fallback.text.presetName),
+        additionalBody: String(text.additionalBody || ""),
+        excludedBody: String(text.excludedBody || ""),
+        additionalHeaders: String(text.additionalHeaders || ""),
         temperature: clampConnectorNumber(text.temperature, fallback.text.temperature, 0, 2),
         topP: clampConnectorNumber(text.topP, fallback.text.topP, 0, 1),
-        maxTokens: Math.round(clampConnectorNumber(text.maxTokens, fallback.text.maxTokens, 64, 8192))
+        maxTokens: Math.round(clampConnectorNumber(text.maxTokens, fallback.text.maxTokens, 64, 200000))
       },
       context: {
         story: context.story !== false,
@@ -39518,8 +39553,70 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     return sections.join("\n\n");
   }
 
+  function connectorScalar(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    if (/^(true|false)$/i.test(text)) return text.toLowerCase() === "true";
+    if (/^null$/i.test(text)) return null;
+    if (/^-?\d+(?:\.\d+)?$/.test(text)) return Number(text);
+    return text.replace(/^(["'])([\s\S]*)\1$/, "$2");
+  }
+
+  function parseConnectorBodyAdditions(value) {
+    const source = String(value || "").trim();
+    if (!source) return {};
+    if (source.startsWith("{")) {
+      const parsed = JSON.parse(source);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("附加主体参数必须是对象。");
+      return parsed;
+    }
+    const result = {};
+    let parent = null;
+    for (const rawLine of source.split(/\r?\n/)) {
+      if (!rawLine.trim() || rawLine.trimStart().startsWith("#")) continue;
+      const match = rawLine.match(/^(\s*)([^:]+):\s*(.*)$/);
+      if (!match) throw new Error("附加主体参数格式错误：" + rawLine.trim());
+      const indent = match[1].length;
+      const key = match[2].trim();
+      const raw = match[3];
+      if (!indent) {
+        if (!raw.trim()) {
+          result[key] = {};
+          parent = key;
+        } else {
+          result[key] = connectorScalar(raw);
+          parent = null;
+        }
+      } else if (parent) {
+        result[parent][key] = connectorScalar(raw);
+      } else {
+        throw new Error("附加主体参数缩进缺少父字段：" + key);
+      }
+    }
+    return result;
+  }
+
+  function connectorExcludedBodyKeys(value) {
+    return String(value || "").split(/[\s,，]+/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  function connectorAdditionalHeaders(value) {
+    const headers = {};
+    for (const line of String(value || "").split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const index = line.indexOf(":");
+      if (index <= 0) throw new Error("附加请求标头格式错误：" + line.trim());
+      const key = line.slice(0, index).trim();
+      const headerValue = line.slice(index + 1).trim();
+      if (/^(authorization|cookie|host)$/i.test(key)) continue;
+      if (key && headerValue) headers[key] = headerValue;
+    }
+    return headers;
+  }
+
   function independentConnectorHeaders(kind, profile) {
     const headers = { "Content-Type": "application/json" };
+    Object.assign(headers, connectorAdditionalHeaders(profile.additionalHeaders));
     if (profile.mode === "direct") {
       const secret = readModelConnectorSessionSecret(kind);
       if (secret) headers.Authorization = "Bearer " + secret;
@@ -39589,9 +39686,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   async function invokeIndependentTextModelThroughHost(profile, messages, signal) {
     const secret = readModelConnectorSessionSecret("text");
-    const customHeaders = secret
-      ? JSON.stringify({ Authorization: "Bearer " + secret })
-      : "";
+    const extraHeaders = connectorAdditionalHeaders(profile.additionalHeaders);
+    if (secret) extraHeaders.Authorization = "Bearer " + secret;
+    const customHeaders = Object.keys(extraHeaders).length ? JSON.stringify(extraHeaders) : "";
     const requestBody = {
       chat_completion_source: "custom",
       custom_url: connectorCustomApiBase(profile.endpoint),
@@ -39603,6 +39700,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       max_tokens: profile.maxTokens,
       stream: false
     };
+    const additions = parseConnectorBodyAdditions(profile.additionalBody);
+    if (Object.keys(additions).length) requestBody.custom_include_body = JSON.stringify(additions);
+    const excluded = connectorExcludedBodyKeys(profile.excludedBody);
+    if (excluded.length) requestBody.custom_exclude_body = excluded.join(",");
     if (String(profile.secretRef || "").trim()) requestBody.secret_id = String(profile.secretRef).trim();
     const origin = connectorHostOrigin();
     const response = await fetch(origin + "/api/backends/chat-completions/generate", {
@@ -39685,6 +39786,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         top_p: profile.topP,
         max_tokens: requestedMaxTokens
       };
+      Object.assign(body, parseConnectorBodyAdditions(profile.additionalBody));
+      connectorExcludedBodyKeys(profile.excludedBody).forEach((key) => delete body[key]);
       let data;
       if (useHostProxy) {
         data = await invokeIndependentTextModelThroughHost({ ...profile, maxTokens: requestedMaxTokens }, messages, signal);
@@ -40102,6 +40205,92 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     renderCameraPage(page);
   }
 
+  function ensureInformationStyle() {
+    if (document.getElementById("st-information-app-style")) return;
+    const style = document.createElement("style");
+    style.id = "st-information-app-style";
+    style.textContent = `
+      .st-information-app{background:linear-gradient(180deg,#111a36,#050919);color:#f7f1dc}
+      .st-information-app .st-lite-body{display:grid;align-content:start;gap:10px;padding:12px;overflow:auto}
+      .st-information-panel{border:1px solid rgba(148,163,184,.24);border-radius:16px;background:rgba(15,23,42,.72);padding:12px;box-shadow:0 10px 26px rgba(0,0,0,.2)}
+      .st-information-panel h3{margin:0 0 9px;font-size:14px}.st-information-panel p{margin:7px 0;color:#b9c4d8;font-size:11px;line-height:1.55;white-space:pre-wrap}
+      .st-information-resources{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.st-information-resource{min-width:0;border-radius:12px;padding:10px 7px;background:#0a1022;text-align:center}.st-information-resource span{display:block;color:#aeb8cb;font-size:9px}.st-information-resource strong{display:block;margin-top:5px;color:#fff;font:850 13px ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis}.st-information-resource.money{border:1px solid rgba(251,191,36,.35)}.st-information-resource.starlight{border:1px solid rgba(244,114,182,.35)}.st-information-resource.energy{border:1px solid rgba(56,189,248,.35)}
+      .st-information-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.st-information-actions button,.st-information-panel select{min-height:40px;border:1px solid rgba(148,163,184,.35);border-radius:11px;background:#17213a;color:#f8fafc;padding:0 10px;font-weight:800}.st-information-actions button.primary{border-color:#5eead4;background:#0f5d65}.st-information-actions button:disabled{opacity:.45}.st-information-panel select{width:100%;margin-top:8px;font-size:11px}
+      .st-information-floor-meta{display:flex;justify-content:space-between;gap:8px;color:#cbd5e1;font-size:10px}.st-information-status{color:#99f6e4!important}.st-information-status.warn{color:#fde68a!important}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function informationValue(value) {
+    if (value === undefined || value === null || value === "") return "--";
+    const number = Number(value);
+    return Number.isFinite(number) ? new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(number) : String(value);
+  }
+
+  async function readInformationData() {
+    try {
+      const value = await window.__ST_HYPNOOS_READ_INFORMATION__?.();
+      if (value && typeof value === "object") return value;
+    } catch {}
+    const system = getSystemState() || {};
+    return {
+      selectedId: "",
+      writable: true,
+      mode: "follow",
+      petCharacterName: "爱丽莎",
+      resources: { money: system["持有零花钱"], starlight: system["星光点"], energy: system["MC能量"] },
+      variableReport: window.__ST_HYPNOOS_VARIABLE_FORMAT_REPORT__?.() || null,
+      floors: []
+    };
+  }
+
+  async function renderInformationPage(page) {
+    const token = String(Date.now()) + Math.random();
+    page.dataset.informationRenderToken = token;
+    const data = await readInformationData();
+    if (!page.isConnected || page.dataset.informationRenderToken !== token) return;
+    const report = data.variableReport || {};
+    const extra = Math.max(0, Number(report.extraCount) || 0);
+    const missing = Math.max(0, Number(report.missingCount) || 0);
+    const formatText = !report.hasData ? "当前楼层没有读到可检查的 MVU 变量。" : extra ? "发现未知键 " + extra + " 项。" : missing ? "缺少字段 " + missing + " 项。" : "变量格式正常。";
+    const floors = Array.isArray(data.floors) ? data.floors : [];
+    const floorOptions = floors.map((item) => '<option value="' + escapeAttr(item.id) + '" ' + (String(item.id) === String(data.selectedId) ? "selected" : "") + '>第 ' + escapeHtml(item.floor) + ' 楼 · 滑动' + escapeHtml(item.swipe) + ' · ' + (item.current ? "当前" : "历史") + ' · ' + (item.snapshot ? "有变量" : "无快照") + '</option>').join("");
+    page.innerHTML = renderLiteHeader(page, { title: "信息", islandText: "INFO" }) +
+      '<main class="st-lite-body">' +
+        '<section class="st-information-panel"><h3>当前资源</h3><div class="st-information-resources">' +
+          '<div class="st-information-resource money"><span>零花钱</span><strong>' + escapeHtml(informationValue(data.resources?.money)) + '</strong></div>' +
+          '<div class="st-information-resource starlight"><span>星光点</span><strong>' + escapeHtml(informationValue(data.resources?.starlight)) + '</strong></div>' +
+          '<div class="st-information-resource energy"><span>MC能量</span><strong>' + escapeHtml(informationValue(data.resources?.energy)) + '</strong></div>' +
+        '</div></section>' +
+        '<section class="st-information-panel"><h3>变量格式</h3><p class="st-information-status ' + (extra || missing ? "warn" : "") + '">' + escapeHtml(formatText) + '</p><div class="st-information-actions"><button type="button" data-information-action="refresh">刷新检查</button><button class="primary" type="button" data-information-action="repair" ' + (!report.hasData || !data.writable || (!extra && !missing) ? "disabled" : "") + '>清理并补齐</button></div></section>' +
+        '<section class="st-information-panel"><h3>桌宠人物</h3><p>当前人物：' + escapeHtml(data.petCharacterName || "爱丽莎") + '</p><div class="st-information-actions"><button class="primary" type="button" data-information-action="pet">切换人物</button></div></section>' +
+        '<section class="st-information-panel"><h3>变量楼层</h3><div class="st-information-floor-meta"><span>' + (data.mode === "follow" ? "跟随视口" : "手动选楼") + '</span><span>' + (data.writable ? "当前楼 · 可操作" : "历史楼 · 只读") + '</span></div><select data-information-floor ' + (floorOptions ? "" : "disabled") + '>' + (floorOptions || '<option>等待楼层</option>') + '</select><div class="st-information-actions" style="margin-top:8px"><button type="button" data-information-action="mode">' + (data.mode === "follow" ? "改为手动选楼" : "恢复跟随视口") + '</button><button type="button" data-information-action="refresh">刷新</button></div></section>' +
+      '</main>';
+    bindLiteHeader(page, () => renderInformationPage(page));
+    page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => { const root = page.parentElement; setPhoneActiveApp(root, ""); page.remove(); void applyHomeWallpaper(root); });
+    page.querySelectorAll('[data-information-action="refresh"]').forEach((button) => button.addEventListener("click", () => renderInformationPage(page)));
+    page.querySelector('[data-information-action="repair"]')?.addEventListener("click", async () => { await window.__ST_HYPNOOS_CORRECT_VARIABLE_FORMAT__?.(); await renderInformationPage(page); });
+    page.querySelector('[data-information-action="pet"]')?.addEventListener("click", async () => { await window.__ST_HYPNOOS_SWITCH_INFORMATION_PET__?.(); await renderInformationPage(page); });
+    page.querySelector('[data-information-action="mode"]')?.addEventListener("click", async () => { await window.__ST_HYPNOOS_TOGGLE_INFORMATION_MODE__?.(); await renderInformationPage(page); });
+    page.querySelector('[data-information-floor]')?.addEventListener("change", async (event) => { await window.__ST_HYPNOOS_SELECT_INFORMATION_FLOOR__?.(event.target.value); await renderInformationPage(page); });
+  }
+
+  function openInformationPage(tile) {
+    ensureStyle();
+    ensurePhoneDarkThemeStyle();
+    ensureInformationStyle();
+    const root = findPhoneRoot(tile);
+    if (!root) return;
+    setPhoneActiveApp(root, "information");
+    root.style.position = root.style.position || "relative";
+    clearPhoneInternalOverlays(root);
+    const page = document.createElement("section");
+    page.className = "st-lite-app st-information-app";
+    page.setAttribute("aria-label", "信息");
+    root.appendChild(page);
+    void renderInformationPage(page);
+  }
+
   function closePendingInputPage(page) {
     if (!page) return;
     cleanupPhoneInternalOverlay(page);
@@ -40173,12 +40362,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   window.__ST_OPEN_HELP_APP__ = () => openHelpLitePage();
   window.__ST_OPEN_SETTINGS_APP__ = () => openSettingsPage();
   window.__ST_OPEN_PENDING_INPUT_APP__ = () => openPendingInputPage();
+  window.__ST_OPEN_INFORMATION_APP__ = () => openInformationPage();
   window.__ST_OPEN_PLACEHOLDER_APP__ = (appName, title, subtitle) => openPlaceholderPage(null, appName, title, subtitle);
 
   function looksLikePhoneHome(root) {
     const rootText = root?.innerText || "";
     return ["催眠APP", "日历", "成就和任务", "库存", "MC匿名版"].every((label) => rootText.includes(label)) &&
-      !root.querySelector(".st-mchan-internal-app, .st-calendar-lite-app, .st-timetable-app, .st-clock-app, .st-profile-app, .st-map-app, .st-city-map-app, .st-school-app, .st-special-location-app, .st-monitor-app, .st-work-app, .st-camera-app, .st-wallpaper-app, .st-encounter-app, .st-inventory-app, .st-reward-app, .st-hypnosis-lite-app, .st-help-app, .st-settings-app, .st-placeholder-app, .st-operation-phone-app");
+      !root.querySelector(".st-mchan-internal-app, .st-calendar-lite-app, .st-timetable-app, .st-clock-app, .st-profile-app, .st-map-app, .st-city-map-app, .st-school-app, .st-special-location-app, .st-monitor-app, .st-work-app, .st-camera-app, .st-wallpaper-app, .st-encounter-app, .st-inventory-app, .st-reward-app, .st-hypnosis-lite-app, .st-help-app, .st-settings-app, .st-placeholder-app, .st-operation-phone-app, .st-information-app");
   }
 
   function getHomeHeader(root) {
@@ -40980,7 +41170,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const specs = [
       { label: "催眠APP", flag: "stHypnosisLitePatched", aria: "打开催眠APP", open: openHypnosisLitePage },
       { label: "成就和任务", flag: "stRewardLitePatched", aria: "打开成就和任务", open: openRewardPage },
-      { label: "库存", flag: "stInventoryLitePatched", aria: "打开库存", open: openInventoryPage }
+      { label: "库存", flag: "stInventoryLitePatched", aria: "打开库存", open: openInventoryPage },
+      { label: "设置", flag: "stSettingsLitePatched", aria: "打开设置", open: openSettingsPage }
     ];
     for (const spec of specs) {
       const tile = findHomeTileByText(spec.label);
@@ -41017,6 +41208,28 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     bindHomeTileAction(tile, "stPendingInputTilePatched", "打开本轮输入", openPendingInputPage);
   }
 
+  function patchInformationTile() {
+    const root = findPhoneRoot(document.body);
+    if (!root || !looksLikePhoneHome(root)) return;
+    const pendingTile = findHomeTileByText("本轮输入");
+    const settingsTile = findHomeTileByText("设置");
+    const anchor = pendingTile || settingsTile;
+    if (!anchor?.parentElement) return;
+    let tile = dedupeHomeTilesByText("信息") || anchor.parentElement.querySelector('[data-st-information-tile="true"]');
+    const created = !tile;
+    if (!tile) {
+      tile = settingsTile.cloneNode(true);
+      tile.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      for (const key of Object.keys(tile.dataset || {})) delete tile.dataset[key];
+      setHomeTileLabel(tile, "信息");
+      tile.dataset.homeAppId = "information";
+      anchor.insertAdjacentElement("afterend", tile);
+    }
+    tile.dataset.stInformationTile = "true";
+    if (created) setHomeTileIcon(tile, ST_APP_ICONS.information, "信息");
+    bindHomeTileAction(tile, "stInformationTilePatched", "打开信息", openInformationPage);
+  }
+
   function patchHomeTile() {
     const root = findPhoneRoot(document.body);
     if (root && looksLikePhoneHome(root)) void applyHomeWallpaper(root);
@@ -41028,6 +41241,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     patchCalendarAndTimetableTiles();
     patchMapAndSchoolTiles();
     patchPendingInputTile();
+    patchInformationTile();
     const labels = Array.from(document.querySelectorAll("span,button,div"))
       .filter((element) => !element.closest(".st-mchan-internal-app,.st-calendar-lite-app,.st-timetable-app,.st-clock-app,.st-profile-app,.st-map-app,.st-city-map-app,.st-school-app,.st-special-location-app,.st-monitor-app,.st-work-app,.st-camera-app,.st-wallpaper-app,.st-encounter-app,.st-inventory-app,.st-reward-app,.st-hypnosis-lite-app,.st-help-app,.st-settings-app,.st-placeholder-app,.st-operation-phone-app") && element.textContent?.trim() === "MC匿名版");
     for (const label of labels) {

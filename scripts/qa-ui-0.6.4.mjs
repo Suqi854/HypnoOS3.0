@@ -12,7 +12,7 @@ const browser = await chromium.launch({
 });
 
 async function openPhone(viewport, screenshotPrefix) {
-  const page = await browser.newPage({ viewportSize: viewport, deviceScaleFactor: 1 });
+  const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   const errors = [];
   page.on('pageerror', (error) => errors.push(String(error)));
   await page.addInitScript(() => {
@@ -33,7 +33,7 @@ async function openPhone(viewport, screenshotPrefix) {
       extensionSettings: { world_info: { charLore: [] } },
       chat: [
         { mes: '开场', is_user: false, name: 'QA角色' },
-        { mes: '回复', is_user: false, name: 'QA角色', variables: { stat_data: { 系统: { MC能量: 66, MC能量上限: 80 }, 角色: { 测试角色: { 好感度: 12 } } } } },
+        { mes: '回复', is_user: false, name: 'QA角色', variables: { stat_data: { 系统: { MC能量: 66, MC能量上限: 80, 星光点: 12, 持有零花钱: 3456 }, 角色: { 测试角色: { 好感度: 12 } } } } },
       ],
       getWorldInfoNames() { return ['qa-book']; },
       loadWorldInfo(name) { return { entries: { 1: { uid: 1, comment: 'QA地点', content: `${name}:测试地点` } } }; },
@@ -72,6 +72,9 @@ async function openPhone(viewport, screenshotPrefix) {
       borderWidth: getComputedStyle(wrap).borderWidth,
       background: getComputedStyle(wrap).backgroundColor,
       dragEdges: shadow.querySelectorAll('[data-phone-drag]').length,
+      resizeCorners: shadow.querySelectorAll('[data-phone-resize]').length,
+      resizeCornerText: Array.from(shadow.querySelectorAll('[data-phone-resize]')).map((node) => node.textContent).join(''),
+      sidecarDisplay: getComputedStyle(shadow.querySelector('.sidecar')).display,
       panelScrollHeight: panel.scrollHeight,
       panelClientHeight: panel.clientHeight,
     };
@@ -79,6 +82,9 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(hostMetrics.borderWidth, '1px');
   assert.equal(hostMetrics.background, 'rgba(0, 0, 0, 0)');
   assert.equal(hostMetrics.dragEdges, 5);
+  assert.equal(hostMetrics.resizeCorners, 2);
+  assert.equal(hostMetrics.resizeCornerText, '');
+  assert.equal(hostMetrics.sidecarDisplay, 'none');
 
   const shellMetrics = await frame.evaluate(() => {
     const app = document.querySelector('#app');
@@ -111,6 +117,54 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(bridgeSnapshot.books.primary, 'qa-book');
   assert.equal(bridgeSnapshot.worldbook.entries['1'].comment, 'QA地点');
   assert.equal(bridgeSnapshot.mvu.stat_data.系统.MC能量, 66);
+
+  await frame.locator('[aria-label="打开信息"]').click();
+  await frame.waitForSelector('.st-information-app');
+  assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '信息应用仍叠加旧 React 顶栏');
+  const informationText = await frame.locator('.st-information-app').innerText();
+  assert.match(informationText, /3,456/);
+  assert.match(informationText, /MC能量\s*66/);
+  assert.match(informationText, /变量格式/);
+  assert.match(informationText, /桌宠人物/);
+  assert.match(informationText, /变量楼层/);
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-information-app.png`, fullPage: true });
+  await frame.locator('.st-information-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  if (screenshotPrefix.includes('desktop')) {
+    const before = await page.evaluate(() => document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot.querySelector('.panel').getBoundingClientRect().toJSON());
+    const corner = page.locator('#hypnoos3-extension-floating-phone-host .resize-corner.right');
+    const box = await corner.boundingBox();
+    assert.ok(box);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 38, box.y + box.height / 2 + 38, { steps: 6 });
+    await page.mouse.up();
+    const after = await page.evaluate(() => document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot.querySelector('.panel').getBoundingClientRect().toJSON());
+    assert.ok(after.width > before.width + 10, '右下角拖拽未放大手机');
+    assert.ok(Math.abs(after.width / after.height - 430 / 812) < 0.002, '手机缩放不是等比例');
+
+    const enlargedBox = await corner.boundingBox();
+    assert.ok(enlargedBox);
+    await page.mouse.move(enlargedBox.x + enlargedBox.width / 2, enlargedBox.y + enlargedBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(enlargedBox.x + enlargedBox.width / 2 - 38, enlargedBox.y + enlargedBox.height / 2 - 38, { steps: 6 });
+    await page.mouse.up();
+    const restored = await page.evaluate(() => document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot.querySelector('.panel').getBoundingClientRect().toJSON());
+    console.log('resizeMetrics', { before, enlarged: after, restored });
+    assert.ok(restored.width < after.width - 10, '右下角拖拽未缩小手机');
+    assert.ok(Math.abs(restored.width / restored.height - 430 / 812) < 0.002, '手机缩小时不是等比例');
+    assert.ok(Math.abs(restored.width - before.width) < 3, '缩放回归未恢复默认尺寸');
+  }
+
+  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.getByRole('button', { name: '模型插头' }).click();
+  assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '设置应用仍叠加旧 React 顶栏');
+  const settingsText = await frame.locator('.st-settings-app').innerText();
+  for (const label of ['API 预设', '预设名称', '酒馆后端代理', '自定义直连', '端点（基础 URL）', 'API 密钥', '模型名', '最大回复长度', '附加主体参数', '排除主体参数', '附加请求标头', '保存当前预设']) assert.match(settingsText, new RegExp(label));
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-model-settings.png`, fullPage: true });
+  await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-home.png`, fullPage: true });
   await frame.evaluate(() => {
@@ -146,7 +200,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.6.3-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.6.3-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.6.4-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.6.4-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

@@ -125,6 +125,7 @@
     var selectionMode = "follow";
     var loadedForWritableId = "";
     var dragState = null;
+    var resizeState = null;
     var launcherDragState = null;
     var suppressLauncherClick = false;
     var petSprite = null;
@@ -937,6 +938,41 @@
       paintSidecarResources(root && root["系统"], false);
     }
 
+    async function readInformationSnapshot() {
+      var id = textId(selectedId || writableId());
+      var option = { type: "message", message_id: id };
+      var snapshot = null;
+      try { snapshot = await Promise.resolve(callMvu("getMvuData", [option])); } catch (_) {}
+      if (!usableSnapshot(snapshot)) {
+        try { snapshot = await Promise.resolve(callApi("getVariables", [option])); } catch (_) {}
+      }
+      var root = usableSnapshot(snapshot) ? unwrapStat(snapshot) : null;
+      var system = root && root["系统"] && typeof root["系统"] === "object" ? root["系统"] : {};
+      return {
+        selectedId: id,
+        writableId: writableId(),
+        writable: isWritable(),
+        mode: selectionMode,
+        petCharacterId: petCharacterId,
+        petCharacterName: PET_CHARACTER_NAMES[petCharacterId] || petCharacterId,
+        resources: {
+          money: system["持有零花钱"] ?? null,
+          starlight: system["星光点"] ?? null,
+          energy: system["MC能量"] ?? null
+        },
+        variableReport: phoneApi("__ST_HYPNOOS_VARIABLE_FORMAT_REPORT__", [], true) || null,
+        floors: floorItems().map(function (item) {
+          return {
+            id: item.id,
+            floor: item.floor,
+            swipe: item.swipe,
+            snapshot: Boolean(item.snapshot),
+            current: item.id === writableId()
+          };
+        })
+      };
+    }
+
     function paintVariableFormatButton(report) {
       if (!variableFormatButton) return;
       var data = report && typeof report === "object" ? report : null;
@@ -1156,6 +1192,7 @@
           y: current.y,
           launcherX: current.launcherX,
           launcherY: current.launcherY,
+          scale: current.scale,
           petCharacterId: petCharacterId
         }));
       } catch (_) {}
@@ -1171,6 +1208,7 @@
           y: Math.round(y),
           launcherX: current.launcherX,
           launcherY: current.launcherY,
+          scale: current.scale,
           petCharacterId: petCharacterId
         }));
       } catch (_) {}
@@ -1186,6 +1224,23 @@
           y: current.y,
           launcherX: Math.round(x),
           launcherY: Math.round(y),
+          scale: current.scale,
+          petCharacterId: petCharacterId
+        }));
+      } catch (_) {}
+    }
+
+    function savePhoneScale(scale, x, y) {
+      try {
+        var current = readUiState();
+        host.localStorage.setItem(storageKey, JSON.stringify({
+          mode: selectionMode,
+          selectedId: selectedId,
+          x: Math.round(x),
+          y: Math.round(y),
+          launcherX: current.launcherX,
+          launcherY: current.launcherY,
+          scale: normalizedPhoneScale(scale),
           petCharacterId: petCharacterId
         }));
       } catch (_) {}
@@ -1202,12 +1257,15 @@
     }
 
     function panelSidecarReserve(width) {
-      var viewport = hostViewportRect();
-      var available = Math.max(0, viewport.width - Number(width || 0) - 24);
-      return Math.min(panel?.classList?.contains("profile-neighbors") ? 354 : 286, available);
+      return 0;
     }
 
-    function syncPanelSize() {
+    function normalizedPhoneScale(value) {
+      var number = Number(value);
+      return Number.isFinite(number) ? Math.max(0.55, Math.min(1.5, number)) : 1;
+    }
+
+    function syncPanelSize(requestedScale) {
       if (!panel) return;
       var baseWidth = 430;
       var baseHeight = 812;
@@ -1215,21 +1273,22 @@
       var viewportWidth = viewport.width;
       var viewportHeight = viewport.height;
       var widthAllowance = Math.max(1, viewportWidth - 16);
-      if (viewportWidth <= 760) {
-        var sidecarWidth = Math.min(220, Math.max(104, viewportWidth * 0.28));
-        widthAllowance = Math.max(1, viewportWidth - sidecarWidth - 30);
-      }
       var heightAllowance = Math.max(1, viewportHeight - 16);
-      var scale = Math.min(1, widthAllowance / baseWidth, heightAllowance / baseHeight);
+      var saved = readUiState();
+      var preferred = normalizedPhoneScale(requestedScale === undefined ? saved.scale : requestedScale);
+      var scale = Math.min(preferred, widthAllowance / baseWidth, heightAllowance / baseHeight);
       panel.style.width = Math.max(1, Math.floor(baseWidth * scale)) + "px";
       panel.style.height = Math.max(1, Math.floor(baseHeight * scale)) + "px";
       panel.style.setProperty("--phone-scale", String(scale));
+      panel.dataset.phoneScale = String(scale);
+      return scale;
     }
 
     function clampPosition(x, y) {
       var viewport = hostViewportRect();
-      var width = panel ? panel.offsetWidth : Math.min(760, viewport.width - 24);
-      var height = panel ? panel.offsetHeight : Math.min(900, viewport.height - 24);
+      var rect = panel?.getBoundingClientRect?.();
+      var width = rect?.width || (panel ? panel.offsetWidth : Math.min(760, viewport.width - 24));
+      var height = rect?.height || (panel ? panel.offsetHeight : Math.min(900, viewport.height - 24));
       var sidecar = panelSidecarReserve(width);
       var lowerBoundX = viewport.left + 8;
       var upperX = Math.max(lowerBoundX, viewport.left + viewport.width - width - sidecar - 8);
@@ -1260,8 +1319,9 @@
       syncPanelSize();
       var viewport = hostViewportRect();
       var saved = readUiState();
-      var fallbackX = Math.max(viewport.left + 8, viewport.left + viewport.width - panel.offsetWidth - panelSidecarReserve(panel.offsetWidth) - 28);
-      var fallbackY = Math.max(viewport.top + 8, Math.min(viewport.top + 88, viewport.top + viewport.height - panel.offsetHeight - 8));
+      var rect = panel.getBoundingClientRect();
+      var fallbackX = Math.max(viewport.left + 8, viewport.left + viewport.width - rect.width - 28);
+      var fallbackY = Math.max(viewport.top + 8, Math.min(viewport.top + 88, viewport.top + viewport.height - rect.height - 8));
       var next = clampPosition(saved.x === undefined ? fallbackX : saved.x, saved.y === undefined ? fallbackY : saved.y);
       panel.style.left = next.x + "px";
       panel.style.top = next.y + "px";
@@ -1737,9 +1797,10 @@
         ".profile-possession-host,.encounter-possession-decor-host{position:absolute;z-index:9;left:50%;top:-88px;width:calc(100% + 34px);height:150px;transform:translateX(-50%) rotate(-.5deg);display:none;pointer-events:none;overflow:visible}.encounter-possession-decor-host[hidden]{display:none!important}.panel.profile-possession-visible .profile-possession-host{display:block}.panel.encounter-possession-decor-visible:not(.profile-possession-visible) .encounter-possession-decor-host:not([hidden]){display:block}.encounter-possession-decor-host img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none;clip-path:inset(0 0 18% 0);filter:grayscale(.2) saturate(.82) blur(.55px) drop-shadow(0 8px 8px rgba(0,0,0,.5));opacity:.82;transform:translate(2px,-1px)}.encounter-possession-decor-host:after{content:'';position:absolute;inset:0;background:url('" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "') center/contain no-repeat;clip-path:inset(0 0 18% 0);opacity:.14;filter:blur(4px);transform:translate(-5px,-1px)}.profile-possession-grip{position:absolute;inset:0;border:0;padding:0;background:transparent;pointer-events:auto;cursor:pointer;touch-action:manipulation;clip-path:inset(0 0 18% 0);filter:grayscale(.24) saturate(.76) blur(.7px);opacity:.6;transform:translate(2px,-1px);transition:transform .25s cubic-bezier(.2,.85,.22,1),filter .25s ease,opacity .25s ease}.profile-possession-grip img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}.profile-possession-grip:after{content:'';position:absolute;inset:0;background:url('" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "') center/contain no-repeat;opacity:.2;filter:blur(4px);transform:translate(-6px,-1px);pointer-events:none}.profile-possession-grip:hover{opacity:.8;filter:grayscale(.1) saturate(.9) blur(.35px);transform:translateY(2px) rotate(.25deg)}.profile-possession-grip:active{transform:translateY(4px) scale(.992)}.profile-possession-grip.active{opacity:1;filter:saturate(1.06) contrast(1.04);transform:none}.profile-possession-grip.active:after{opacity:.07;filter:blur(2px);transform:translate(-2px,-1px)}",
         ".encounter-detail-host{--ed-red:#ef1b2d;position:absolute;z-index:18;right:calc(100% + 16px);top:20px;width:500px;max-height:calc(100% - 40px);display:none;overflow:auto;pointer-events:auto;color:#fff;font-family:Impact,'Arial Black','Noto Sans SC',system-ui;filter:drop-shadow(0 28px 45px rgba(0,0,0,.5));scrollbar-width:thin;scrollbar-color:#ef1b2d #080808}.encounter-detail-host.open{display:block}.encounter-detail-host__frame{position:relative;min-height:620px;overflow:hidden;border:5px solid #080808;background:#f3eee4;clip-path:polygon(3% 0,100% 3%,97% 94%,86% 91%,79% 100%,4% 96%,0 12%);isolation:isolate}.encounter-detail-host__frame:before{content:'';position:absolute;inset:-20%;z-index:-3;background:repeating-linear-gradient(113deg,transparent 0 22px,rgba(0,0,0,.08) 23px 25px),radial-gradient(circle at 18% 22%,#ef1b2d 0 3%,transparent 3.3%),linear-gradient(145deg,#eee7dc 0 38%,#d9d1c6 38% 45%,#f7f3ea 45% 100%)}.encounter-detail-host__frame:after{content:'';position:absolute;z-index:-2;left:-18%;right:16%;bottom:-22%;height:66%;background:#080808;transform:rotate(-8deg);clip-path:polygon(0 12%,100% 0,86% 100%,8% 84%)}.encounter-detail-host__close{position:absolute;z-index:8;right:18px;top:18px;width:46px;height:42px;border:4px solid #080808;background:#ef1b2d;color:#fff;font:950 24px/1 Impact,'Arial Black',sans-serif;transform:rotate(3deg);cursor:pointer;box-shadow:6px 6px 0 #080808}.encounter-detail-host__kicker{display:inline-block;margin:28px 0 0 26px;padding:5px 18px;background:#080808;color:#fff;font:950 14px/1 Impact,'Arial Black','Noto Sans SC',sans-serif;letter-spacing:.12em;transform:rotate(-3deg);clip-path:polygon(4% 0,100% 8%,94% 100%,0 84%)}.encounter-detail-host__name{position:relative;z-index:2;margin:10px 58px 0 24px;color:#080808;font:950 clamp(30px,4vw,54px)/.92 Impact,'Arial Black','Noto Sans SC',sans-serif;letter-spacing:.02em;text-transform:uppercase;transform:rotate(-2deg);text-shadow:3px 3px 0 #fff,6px 6px 0 #ef1b2d;overflow-wrap:anywhere}.encounter-detail-host__alias{display:inline-block;margin:10px 0 0 32px;padding:5px 13px;background:#ef1b2d;color:#fff;font:900 13px/1.2 system-ui;transform:rotate(1deg)}.encounter-detail-host__visual{position:relative;height:285px;margin:8px 18px 0;overflow:hidden;clip-path:polygon(3% 8%,94% 0,100% 88%,8% 100%,0 55%);background:#080808}.encounter-detail-host__visual img{width:100%;height:100%;display:block;object-fit:cover;object-position:center 18%;filter:saturate(.8) contrast(1.14)}.encounter-detail-host__visual:after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,rgba(239,27,45,.45),transparent 34%,transparent 70%,rgba(0,0,0,.5)),repeating-linear-gradient(0deg,transparent 0 4px,rgba(255,255,255,.07) 5px);mix-blend-mode:screen;pointer-events:none}.encounter-detail-host__source{position:absolute;z-index:4;right:16px;bottom:18px;max-width:70%;padding:7px 13px;background:#fff;color:#080808;border:3px solid #080808;font:950 12px/1.2 system-ui;transform:rotate(-2deg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.encounter-detail-host__body{position:relative;z-index:3;margin:-18px 26px 30px;padding:22px 18px 18px;background:#ef1b2d;color:#fff;clip-path:polygon(0 7%,100% 0,96% 100%,5% 94%);transform:rotate(.5deg)}.encounter-detail-host__intro{margin:0 0 13px;font:750 13px/1.65 system-ui;white-space:pre-wrap}.encounter-detail-host__facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.encounter-detail-host__fact{min-width:0;padding:8px 9px;background:#080808;color:#fff;transform:skew(-4deg)}.encounter-detail-host__fact span{display:block;color:#ff9aa4;font:850 9px/1.2 system-ui;letter-spacing:.08em}.encounter-detail-host__fact strong{display:block;margin-top:3px;font:850 12px/1.3 system-ui;overflow-wrap:anywhere}.encounter-detail-host__thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:0 27px 28px}.encounter-detail-host__thumbs img{width:100%;aspect-ratio:1/1;object-fit:cover;border:3px solid #080808;background:#ddd;transform:rotate(var(--thumb-tilt,0deg))}.encounter-detail-host__empty{display:grid;height:100%;place-items:center;color:#fff;font:950 54px/1 Impact,sans-serif;background:repeating-linear-gradient(135deg,#080808 0 18px,#ef1b2d 19px 34px)}",
         ".encounter-detail-host{padding:6px 0 16px;overscroll-behavior:contain}.encounter-detail-host__frame{clip-path:polygon(1% 0,100% 1%,99% 98%,87% 97%,82% 100%,1% 99%,0 4%);padding-bottom:30px}.encounter-detail-host__body{margin:-10px 24px 22px;padding:34px 20px 30px;clip-path:polygon(0 2%,100% 0,98% 100%,2% 98%);transform:none}.encounter-detail-host__thumbs{margin-bottom:8px;padding-bottom:8px}",
-        ".sidecar{position:absolute;z-index:12;left:calc(100% + 14px);top:12px;width:var(--floor-sidecar-width);display:grid;grid-template-columns:minmax(0,1fr);justify-items:start;gap:8px;pointer-events:none}",
+        ".sidecar{display:none!important}",
         ".readonly{position:static;z-index:13;width:100%;padding:8px 10px;border-radius:13px;background:rgba(39,25,12,.72);border:1px solid rgba(251,191,36,.38);color:#fde68a;font:800 10px/1.35 system-ui;pointer-events:none;display:none;backdrop-filter:blur(10px)}.panel.history .readonly{display:block}",
         ".drag-edge{position:absolute;z-index:9;touch-action:none;user-select:none}.drag-edge.top{left:22px;right:22px;top:0;height:10px;cursor:grab}.drag-edge.bottom{left:22px;right:22px;bottom:0;height:10px;cursor:grab}.drag-edge.left{left:0;top:22px;bottom:22px;width:10px;cursor:grab}.drag-edge.right{right:0;top:22px;bottom:22px;width:10px;cursor:grab}.drag-edge:active,.drag-grip:active{cursor:grabbing}",
+        ".resize-corner{position:absolute;z-index:11;bottom:0;width:28px;height:28px;border:0;background:transparent;touch-action:none;user-select:none}.resize-corner.left{left:0;cursor:nesw-resize}.resize-corner.right{right:0;cursor:nwse-resize}",
         ".drag-grip{position:absolute;z-index:10;left:50%;top:4px;width:72px;height:12px;transform:translateX(-50%);border-radius:999px;cursor:grab;touch-action:none;user-select:none}",
         ".floor-toggle,.variable-format-toggle,.pet-character-toggle{position:static;z-index:14;width:128px;min-width:128px;height:36px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;backdrop-filter:blur(12px);font:800 11px/1 system-ui;white-space:nowrap;word-break:keep-all;overflow-wrap:normal;writing-mode:horizontal-tb;text-align:center;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.18)}",
         ".floor-toggle{border:1px solid rgba(224,188,255,.38);background:rgba(11,8,26,.38);color:#f7eafe}",
@@ -1753,7 +1814,7 @@
         ".mode{height:32px;padding:0 10px;border:1px solid rgba(201,155,232,.34);border-radius:10px;background:rgba(24,21,43,.5);backdrop-filter:blur(10px);color:#efe4f8;font:750 10px system-ui;cursor:pointer}",
         ".badge{grid-column:1/-1;min-height:28px;padding:6px 9px;border-radius:9px;display:flex;align-items:center;background:rgba(19,78,59,.32);backdrop-filter:blur(10px);border:1px solid rgba(51,211,153,.32);color:#a7f3d0;font:800 10px/1.25 system-ui}.badge.history{background:rgba(76,48,13,.34);border-color:rgba(251,191,36,.3);color:#fde68a}",
         "@media(max-width:980px){.encounter-detail-host{position:fixed;left:8px;right:auto;top:8px;width:min(440px,calc(100vw - 16px));max-height:calc(100vh - 16px)}}",
-        "@media(max-width:760px){.panel{--floor-sidecar-width:clamp(104px,28vw,220px);width:min(430px,calc(100vw - var(--floor-sidecar-width) - 30px))}.profile-neighbor-rail{width:84px;min-height:220px}.profile-neighbor-rail.prev{right:calc(100% - 34px)}.profile-neighbor-rail.next{left:calc(100% - 34px)}.panel.profile-neighbors .sidecar{left:calc(100% + 58px)}.sidecar{left:calc(100% + 10px)}.floor-toggle,.variable-format-toggle,.pet-character-toggle,.resource-panel{width:min(128px,100%);min-width:0}.floor-toggle,.variable-format-toggle,.pet-character-toggle{padding-inline:8px}.floor-drawer{grid-template-columns:minmax(0,1fr)}.floor-title,.mode,.select,.badge{grid-column:1/-1;width:100%}.encounter-detail-host__frame{min-height:560px}}"
+        "@media(max-width:760px){.profile-neighbor-rail{width:84px;min-height:220px}.profile-neighbor-rail.prev{right:calc(100% - 34px)}.profile-neighbor-rail.next{left:calc(100% - 34px)}.floor-drawer{grid-template-columns:minmax(0,1fr)}.floor-title,.mode,.select,.badge{grid-column:1/-1;width:100%}.encounter-detail-host__frame{min-height:560px}}"
       ].join("");
     }
 
@@ -2012,6 +2073,10 @@
         "globalThis.getContext=function(){return r.getContext()};" +
         "globalThis.__ST_HYPNOOS_HOST_REQUEST_HEADERS__=function(){return r.getRequestHeaders()};" +
         "globalThis.__ST_HYPNOOS_DIRECT_SEND__=function(t){return r.directSend(t)};" +
+        "globalThis.__ST_HYPNOOS_READ_INFORMATION__=function(){return r.readInformation()};" +
+        "globalThis.__ST_HYPNOOS_SELECT_INFORMATION_FLOOR__=function(id){return r.selectInformationFloor(id)};" +
+        "globalThis.__ST_HYPNOOS_TOGGLE_INFORMATION_MODE__=function(){return r.toggleInformationMode()};" +
+        "globalThis.__ST_HYPNOOS_SWITCH_INFORMATION_PET__=function(){return r.switchInformationPet()};" +
         "globalThis.__ST_HYPNOOS_UPDATE_PROFILE_NEIGHBORS__=function(p){return r.updateProfileNeighbors(p)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_PROFILE_POSSESSION__=function(p){return r.updateProfilePossession(p)};" +
         "globalThis.__ST_HYPNOOS_UPDATE_ENCOUNTER_POSSESSION_DECOR__=function(p){return r.updateEncounterPossessionDecor(p)};" +
@@ -2075,7 +2140,7 @@
       shadow.innerHTML = "<style>" + shellCss() + "</style>" +
         "<button class='launcher' type='button' aria-label='打开悬浮手机' aria-haspopup='menu' aria-expanded='false'><span class='pet-sprite' aria-hidden='true'></span><span class='pet-fallback' aria-hidden='true'><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8'><rect x='6' y='2.5' width='12' height='19' rx='3'/><path d='M10 5h4M11 18.5h2'/></svg></span><i>0</i></button>" +
 "<nav class='pet-menu' role='menu' aria-label='桌宠菜单' aria-hidden='true'><button type='button' role='menuitem' data-pet-action='switch'>切换</button><button type='button' role='menuitem' data-pet-action='settings'>通用</button></nav>" +
-        "<section class='panel' aria-label='HypnoOS 悬浮手机'><aside class='map-extra-chain-host' aria-label='更多地图区域' aria-hidden='true'></aside><aside class='work-lever-host' aria-label='打工滚筒摇杆'><button class='work-lever' type='button' data-work-lever-host aria-label='拉动或点击摇杆切换下一份工作'><span class='work-lever__body'><svg viewBox='0 0 126 150' aria-hidden='true'><defs><linearGradient id='workLeverTube' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#aeb8b1'/><stop offset='.42' stop-color='#647169'/><stop offset='.72' stop-color='#303a34'/><stop offset='1' stop-color='#151b17'/></linearGradient><radialGradient id='workLeverKnob' cx='.32' cy='.25' r='.72'><stop offset='0' stop-color='#ffd36b'/><stop offset='.22' stop-color='#df850d'/><stop offset='.68' stop-color='#91340b'/><stop offset='1' stop-color='#431506'/></radialGradient></defs><path class='work-lever__tube-shadow' d='M44 31V101Q44 120 63 120H126'/><path class='work-lever__tube' d='M44 31V101Q44 120 63 120H126'/><path class='work-lever__tube-shine' d='M44 35V99Q44 113 61 113H122'/><circle class='work-lever__knob-ring' cx='44' cy='28' r='33'/><circle class='work-lever__knob-core' cx='44' cy='28' r='27'/></svg></span></button></aside><aside class='hypnosis-judgement-perch' aria-hidden='true'><span class='hypnosis-judgement-figure is-demon'><img class='hypnosis-judgement-figure__rear' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-demon-side-v3.png") + "'><img class='hypnosis-judgement-figure__front' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-demon-side-v3.png") + "'></span><span class='hypnosis-judgement-figure is-angel'><img class='hypnosis-judgement-figure__rear' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-angel-side-v3.png") + "'><img class='hypnosis-judgement-figure__front' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-angel-side-v3.png") + "'></span></aside><aside class='encounter-detail-host' aria-hidden='true'></aside><aside class='profile-neighbor-host' aria-label='相邻人物档案'><button class='profile-neighbor-rail prev' type='button' data-kicker='PREV' data-profile-neighbor='prev'></button><button class='profile-neighbor-rail next' type='button' data-kicker='NEXT' data-profile-neighbor='next'></button></aside><aside class='encounter-possession-decor-host' aria-hidden='true' hidden><img alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "'></aside><aside class='profile-possession-host' aria-label='附身控制'><button class='profile-possession-grip' type='button' data-profile-possession-host='' aria-pressed='false'><img alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "'></button></aside><div class='phone-wrap'><iframe class='phone' title='HypnoOS 手机前端' scrolling='no'></iframe><div class='variable-format-dialog' role='dialog' aria-modal='true' aria-hidden='true'><section class='variable-format-dialog__card'><strong data-variable-format-title>变量格式检查</strong><p data-variable-format-body></p><div class='variable-format-dialog__actions'><button type='button' data-variable-format-close>关闭</button><button type='button' data-variable-format-repair>清理并补齐</button></div></section></div></div><span class='drag-edge top' data-phone-drag></span><span class='drag-edge right' data-phone-drag></span><span class='drag-edge bottom' data-phone-drag></span><span class='drag-edge left' data-phone-drag></span><span class='drag-grip' data-phone-drag aria-label='拖动手机'></span><aside class='sidecar'><section class='resource-panel loading' aria-label='当前楼层资源'><div class='resource-row money'><span>零花钱</span><strong data-resource-money>--</strong></div><div class='resource-row starlight'><span>星光点</span><strong data-resource-starlight>--</strong></div><div class='resource-row energy'><span>MC能量</span><strong data-resource-energy>--</strong></div></section><button class='variable-format-toggle' type='button'>变量格式检查</button><span class='readonly'>历史楼层 · 只读；切回当前楼后才能操作</span><button class='pet-character-toggle' type='button'>人物 · 爱丽莎</button><button class='floor-toggle' type='button' aria-expanded='false'>楼层</button><section class='floor-drawer'><span class='floor-title'></span><button class='mode' type='button'>跟随视口</button><select class='select' aria-label='选择变量楼层'></select><span class='badge'></span></section></aside></section>";
+        "<section class='panel' aria-label='HypnoOS 悬浮手机'><aside class='map-extra-chain-host' aria-label='更多地图区域' aria-hidden='true'></aside><aside class='work-lever-host' aria-label='打工滚筒摇杆'><button class='work-lever' type='button' data-work-lever-host aria-label='拉动或点击摇杆切换下一份工作'><span class='work-lever__body'><svg viewBox='0 0 126 150' aria-hidden='true'><defs><linearGradient id='workLeverTube' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#aeb8b1'/><stop offset='.42' stop-color='#647169'/><stop offset='.72' stop-color='#303a34'/><stop offset='1' stop-color='#151b17'/></linearGradient><radialGradient id='workLeverKnob' cx='.32' cy='.25' r='.72'><stop offset='0' stop-color='#ffd36b'/><stop offset='.22' stop-color='#df850d'/><stop offset='.68' stop-color='#91340b'/><stop offset='1' stop-color='#431506'/></radialGradient></defs><path class='work-lever__tube-shadow' d='M44 31V101Q44 120 63 120H126'/><path class='work-lever__tube' d='M44 31V101Q44 120 63 120H126'/><path class='work-lever__tube-shine' d='M44 35V99Q44 113 61 113H122'/><circle class='work-lever__knob-ring' cx='44' cy='28' r='33'/><circle class='work-lever__knob-core' cx='44' cy='28' r='27'/></svg></span></button></aside><aside class='hypnosis-judgement-perch' aria-hidden='true'><span class='hypnosis-judgement-figure is-demon'><img class='hypnosis-judgement-figure__rear' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-demon-side-v3.png") + "'><img class='hypnosis-judgement-figure__front' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-demon-side-v3.png") + "'></span><span class='hypnosis-judgement-figure is-angel'><img class='hypnosis-judgement-figure__rear' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-angel-side-v3.png") + "'><img class='hypnosis-judgement-figure__front' alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/hypnosis-angel-side-v3.png") + "'></span></aside><aside class='encounter-detail-host' aria-hidden='true'></aside><aside class='profile-neighbor-host' aria-label='相邻人物档案'><button class='profile-neighbor-rail prev' type='button' data-kicker='PREV' data-profile-neighbor='prev'></button><button class='profile-neighbor-rail next' type='button' data-kicker='NEXT' data-profile-neighbor='next'></button></aside><aside class='encounter-possession-decor-host' aria-hidden='true' hidden><img alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "'></aside><aside class='profile-possession-host' aria-label='附身控制'><button class='profile-possession-grip' type='button' data-profile-possession-host='' aria-pressed='false'><img alt='' draggable='false' src='" + escapeHtml(String(config.assetBase || "").replace(/\/?$/, "/") + "profile-ui/profile-possession-top-grip-v1.png") + "'></button></aside><div class='phone-wrap'><iframe class='phone' title='HypnoOS 手机前端' scrolling='no'></iframe><div class='variable-format-dialog' role='dialog' aria-modal='true' aria-hidden='true'><section class='variable-format-dialog__card'><strong data-variable-format-title>变量格式检查</strong><p data-variable-format-body></p><div class='variable-format-dialog__actions'><button type='button' data-variable-format-close>关闭</button><button type='button' data-variable-format-repair>清理并补齐</button></div></section></div></div><span class='drag-edge top' data-phone-drag></span><span class='drag-edge right' data-phone-drag></span><span class='drag-edge bottom' data-phone-drag></span><span class='drag-edge left' data-phone-drag></span><span class='drag-grip' data-phone-drag aria-label='拖动手机'></span><span class='resize-corner left' data-phone-resize='left'></span><span class='resize-corner right' data-phone-resize='right'></span><aside class='sidecar'><section class='resource-panel loading' aria-label='当前楼层资源'><div class='resource-row money'><span>零花钱</span><strong data-resource-money>--</strong></div><div class='resource-row starlight'><span>星光点</span><strong data-resource-starlight>--</strong></div><div class='resource-row energy'><span>MC能量</span><strong data-resource-energy>--</strong></div></section><button class='variable-format-toggle' type='button'>变量格式检查</button><span class='readonly'>历史楼层 · 只读；切回当前楼后才能操作</span><button class='pet-character-toggle' type='button'>人物 · 爱丽莎</button><button class='floor-toggle' type='button' aria-expanded='false'>楼层</button><section class='floor-drawer'><span class='floor-title'></span><button class='mode' type='button'>跟随视口</button><select class='select' aria-label='选择变量楼层'></select><span class='badge'></span></section></aside></section>";
       hostDocument.body.appendChild(shell);
       launcher = shadow.querySelector(".launcher");
       petSprite = shadow.querySelector(".pet-sprite");
@@ -2295,6 +2360,9 @@
       shadow.querySelectorAll("[data-phone-drag]").forEach(function (handle) {
         handle.addEventListener("pointerdown", beginDrag);
       });
+      shadow.querySelectorAll("[data-phone-resize]").forEach(function (handle) {
+        handle.addEventListener("pointerdown", beginResize);
+      });
       frame.addEventListener("load", function () {
         consumePendingProfileRole();
         host.setTimeout(function () { notifyStages(); }, 0);
@@ -2438,6 +2506,57 @@
       host.addEventListener("pointermove", moveDrag, true);
       host.addEventListener("pointerup", endDrag, true);
       host.addEventListener("pointercancel", endDrag, true);
+    }
+
+    function beginResize(event) {
+      if (!panel || (event.pointerType === "mouse" && event.button !== 0)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var rect = panel.getBoundingClientRect();
+      resizeState = {
+        pointerId: event.pointerId,
+        handle: event.currentTarget,
+        corner: event.currentTarget.getAttribute("data-phone-resize") === "left" ? "left" : "right",
+        startX: event.clientX,
+        startY: event.clientY,
+        startScale: normalizedPhoneScale(panel.dataset.phoneScale),
+        left: rect.left,
+        top: rect.top,
+        right: rect.right
+      };
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+      host.addEventListener("pointermove", moveResize, true);
+      host.addEventListener("pointerup", endResize, true);
+      host.addEventListener("pointercancel", endResize, true);
+    }
+
+    function moveResize(event) {
+      if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+      event.preventDefault();
+      var horizontal = (event.clientX - resizeState.startX) / 430 * (resizeState.corner === "left" ? -1 : 1);
+      var vertical = (event.clientY - resizeState.startY) / 812;
+      var delta = Math.abs(horizontal) >= Math.abs(vertical) ? horizontal : vertical;
+      var scale = syncPanelSize(resizeState.startScale + delta);
+      var rect = panel.getBoundingClientRect();
+      var x = resizeState.corner === "left" ? resizeState.right - rect.width : resizeState.left;
+      var next = clampPosition(x, resizeState.top);
+      panel.style.left = next.x + "px";
+      panel.style.top = next.y + "px";
+      panel.dataset.phoneScale = String(scale);
+    }
+
+    function endResize(event) {
+      if (!resizeState || (event && event.pointerId !== resizeState.pointerId)) return;
+      var ended = resizeState;
+      resizeState = null;
+      host.removeEventListener("pointermove", moveResize, true);
+      host.removeEventListener("pointerup", endResize, true);
+      host.removeEventListener("pointercancel", endResize, true);
+      try {
+        if (ended.handle?.hasPointerCapture?.(ended.pointerId)) ended.handle.releasePointerCapture(ended.pointerId);
+      } catch (_) {}
+      var rect = panel.getBoundingClientRect();
+      savePhoneScale(panel.dataset.phoneScale, rect.left, rect.top);
     }
 
     function moveDrag(event) {
@@ -2673,6 +2792,26 @@
       },
       getRequestHeaders: hostRequestHeaders,
       directSend: function (text) { return callApi("directSend", [text]); },
+      readInformation: readInformationSnapshot,
+      selectInformationFloor: function (id) {
+        selectFloor(textId(id), "manual");
+        return readInformationSnapshot();
+      },
+      toggleInformationMode: function () {
+        if (selectionMode === "follow") {
+          selectionMode = "manual";
+          saveUiState();
+          updateChrome();
+          refreshPhone();
+        } else {
+          followVisibleFloor();
+        }
+        return readInformationSnapshot();
+      },
+      switchInformationPet: function () {
+        switchPetCharacter();
+        return readInformationSnapshot();
+      },
       phoneApi: phoneApi,
       notifyStages: notifyStages,
       renderActionFoldMarkers: scheduleActionFoldRender,
@@ -2768,6 +2907,9 @@
         try { host.removeEventListener("pointermove", moveDrag, true); } catch (_) {}
         try { host.removeEventListener("pointerup", endDrag, true); } catch (_) {}
         try { host.removeEventListener("pointercancel", endDrag, true); } catch (_) {}
+        try { host.removeEventListener("pointermove", moveResize, true); } catch (_) {}
+        try { host.removeEventListener("pointerup", endResize, true); } catch (_) {}
+        try { host.removeEventListener("pointercancel", endResize, true); } catch (_) {}
         try { host.removeEventListener("message", openingWorldbookMessageHandler); } catch (_) {}
         try { shell?.remove?.(); } catch (_) {}
         stageSubscribers.clear();
