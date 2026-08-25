@@ -187,6 +187,23 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(bridgeSnapshot.worldbook.entries['1'].comment, '[地点] QA测试地点');
   assert.equal(bridgeSnapshot.mvu.stat_data.系统.MC能量, 66);
 
+  if (screenshotPrefix.includes('desktop')) {
+    const appOpenSmokes = [
+      ['inventory', '.st-inventory-app'],
+      ['clock', '.st-clock-app'],
+      ['work', '.st-work-app'],
+      ['help', '.st-help-app'],
+      ['wallpaper', '.st-wallpaper-app'],
+      ['camera', '.st-camera-app'],
+    ];
+    for (const [appId, appSelector] of appOpenSmokes) {
+      await frame.locator(`[data-home-app-id="${appId}"]`).click();
+      await frame.waitForSelector(appSelector);
+      await frame.locator(`${appSelector} [data-lite-action="back"]`).click();
+      await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+    }
+  }
+
   await frame.locator('[aria-label="打开信息"]').dispatchEvent('pointerdown', { button: 0, pointerId: 1 });
   await frame.waitForSelector('.st-information-app');
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '信息应用仍叠加旧 React 顶栏');
@@ -363,6 +380,10 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.match(await frame.locator('.st-profile-app').textContent(), /QA女性/);
   await frame.locator('[data-profile-desk-role="QA女性"]').click();
   await frame.locator('[data-profile-action="toggle-tab-group"]').click();
+  assert.doesNotMatch(await frame.locator('.st-profile-app').innerText(), /劣迹/);
+  await frame.locator('[data-profile-action="remodel"]').click();
+  await frame.waitForSelector('.st-profile-remodel');
+  assert.equal(await frame.locator('[data-profile-locked-remodel], [data-profile-locked-bad-records]').count(), 0, '档案仍存在劣迹或医院改造室锁定入口');
   await frame.locator('[data-profile-action="effects"]').click();
   const triggerCard = frame.locator('.st-trigger-card').first();
   await triggerCard.waitFor();

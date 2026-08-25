@@ -17813,7 +17813,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     { id: "effects", label: "效果" }
   ];
   const PERSON_PROFILE_PRIMARY_TABS = ["clothing", "info", "state", "events", "items"];
-  const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "bad-records", "remodel"];
+  const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "remodel"];
   const ST_PROFILE_UI_STATE_STORAGE_PREFIX = "hypnoos:profile-ui:v2";
   const ST_PROFILE_NAV_NORMAL_ART = stAssetUrl("profile-ui/profile-nav-normal-v1.png");
   const ST_PROFILE_NAV_CONFIDENTIAL_ART = stAssetUrl("profile-ui/profile-nav-confidential-v1.png");
@@ -18824,7 +18824,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function activePersonProfileTab(page) {
     const value = page?.dataset?.profileTab || "clothing";
-    return PERSON_PROFILE_TABS.some((tab) => tab.id === value) || value === "bad-records" || value === "remodel" || value === "items" ? value : "clothing";
+    return PERSON_PROFILE_TABS.some((tab) => tab.id === value) || value === "remodel" || value === "items" ? value : "clothing";
   }
 
   function profileNavSetForTab(tab = "clothing") {
@@ -18908,16 +18908,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       const selectedRoleName = deskRoleName || roleNames[normalizeProfileIndex(page, roleNames.length)] || "";
       const selectedRoleData = isPlainObject(roles?.[selectedRoleName]) ? roles[selectedRoleName] : {};
       if (isMaleRole(selectedRoleName, selectedRoleData)) {
-        page.dataset.profileTransformNotice = "男性角色不能进行医院改造。";
+        page.dataset.profileTransformNotice = "男性角色不能进行改造。";
         renderPersonProfilePage(page);
         return;
       }
       if (ST_NON_OPERABLE_ROLE_NAMES.has(selectedRoleName)) {
         openProfileLockedDialog(page, "remodel-immune");
-        return;
-      }
-      if (!hospitalLineRemodelUnlocked()) {
-        openProfileLockedDialog(page, "remodel");
         return;
       }
       if (deskRoleName) {
@@ -18948,16 +18944,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       renderPersonProfilePage(page);
       return;
     }
-    if (PERSON_PROFILE_TABS.some((tab) => tab.id === action) || action === "bad-records" || action === "items") {
+    if (PERSON_PROFILE_TABS.some((tab) => tab.id === action) || action === "items") {
       clearProfileDialogStates(page);
       closeProfileEventsMode(page);
-      if (action === "bad-records") {
-        page.dataset.profileBadRecordActiveSegment = page.dataset.profileBadRecordActiveSegment === "crime" ? "crime" : "personality";
-      } else {
-        delete page.dataset.profileMode;
-        delete page.dataset.profileBadRecordActiveSegment;
-        delete page.dataset.profileBadRecordSelectedTrait;
-      }
+      delete page.dataset.profileMode;
+      delete page.dataset.profileBadRecordActiveSegment;
+      delete page.dataset.profileBadRecordSelectedTrait;
       page.dataset.profileTab = action;
       page.dataset.profileNavSet = profileNavSetForTab(action);
       if (page.dataset.profileNavSet === "confidential") page.dataset.profileConfidentialTab = action;
@@ -19153,16 +19145,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const childOperationConfirm = profileEventControl(page, event, "[data-profile-child-operation-confirm]");
     if (childOperationConfirm) {
       void applyProfileChildOperation(page, page.dataset.profileChildOperationDialog || "", true);
-      return true;
-    }
-    const lockedBadRecords = profileEventControl(page, event, "[data-profile-locked-bad-records]");
-    if (lockedBadRecords) {
-      openProfileLockedDialog(page, "bad-records");
-      return true;
-    }
-    const lockedRemodel = profileEventControl(page, event, "[data-profile-locked-remodel]");
-    if (lockedRemodel) {
-      openProfileLockedDialog(page, "remodel");
       return true;
     }
     const badRecordSegment = profileEventControl(page, event, "[data-profile-bad-record-segment]");
@@ -19899,12 +19881,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const profileTabButtonHtml = (tab) => (
       '<button class="st-person-tab ' + (!inEventsMode && activeTab === tab.id ? "active" : "") + '" type="button" data-profile-action="' + escapeAttr(tab.id) + '">' + escapeHtml(tab.label) + '</button>'
     );
-    const badRecordsTabHtml = () => {
-      const locked = policeLineValue() !== 2;
-      return '<button class="st-person-tab ' + (!locked && inBadRecordsMode ? "active" : "") + (locked ? " is-locked" : "") + '" type="button" ' +
-        (locked ? 'data-profile-locked-bad-records aria-label="劣迹未解锁"' : 'data-profile-action="bad-records"') +
-      '>劣迹</button>';
-    };
     const profileTodoButtonHtml = (action, label, active = false) => (
       '<button class="st-person-tab is-locked ' + (active ? "active" : "") + '" type="button" data-profile-action="' + escapeAttr(action) + '" aria-label="' + escapeAttr(label + "待续") + '">' + escapeHtml(label) + '</button>'
     );
@@ -19913,23 +19889,19 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       ? '<button class="st-person-tab is-locked" type="button" data-profile-action="remodel" aria-label="该角色不可改造">改造</button>'
       : isMaleRole(roleName, roleData)
         ? '<button class="st-person-tab is-locked" type="button" data-profile-action="remodel" aria-label="男性角色不可改造">改造</button>'
-      : hospitalLineRemodelUnlocked()
-        ? '<button class="st-person-tab ' + (!inEventsMode && activeTab === "remodel" ? "active" : "") + '" type="button" data-profile-action="remodel">改造</button>'
-        : '<button class="st-person-tab is-locked" type="button" data-profile-locked-remodel aria-label="医院改造室未开放">改造</button>';
+      : '<button class="st-person-tab ' + (!inEventsMode && activeTab === "remodel" ? "active" : "") + '" type="button" data-profile-action="remodel">改造</button>';
     const navSet = activeProfileNavSet(page);
     page.dataset.profileNavSet = navSet;
     const navSwitchHtml = '<button class="st-person-tab is-nav-switch" type="button" data-profile-action="toggle-tab-group">' + (navSet === "confidential" ? "常规" : "深层") + '</button>';
     const leftTabsHtml = navSet === "confidential"
-      ? profileTabButtonHtml({ id: "sensitivity", label: "敏感" }) + profileTabButtonHtml({ id: "effects", label: "效果" }) + badRecordsTabHtml()
+      ? profileTabButtonHtml({ id: "sensitivity", label: "敏感" }) + profileTabButtonHtml({ id: "effects", label: "效果" })
       : profileTabButtonHtml({ id: "clothing", label: "衣着" }) + profileTabButtonHtml({ id: "info", label: "信息" }) + profileTabButtonHtml({ id: "state", label: "状态" });
     const rightTabsHtml = navSet === "confidential"
       ? remodelTabHtml + navSwitchHtml
       : eventsTabHtml + profileTabButtonHtml({ id: "items", label: "物品" }) + navSwitchHtml;
     const contentHtml = inEventsMode
       ? renderPersonEventsBookPage(page, roleName, roleData)
-      : inBadRecordsMode
-        ? renderProfileBadRecordsPage(page, roleName, roleData)
-        : activeTab === "remodel"
+      : activeTab === "remodel"
           ? renderProfileRemodelPanel(page, roleName)
         : activeTab === "items"
           ? renderProfileItemsPanel(page, roleName, roleData)
@@ -34437,7 +34409,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         { id: "school", graphId: "school", label: "私立斋明学园", short: "斋明学园", category: "校园", icon: "school", symbol: "🏫", col: 2, row: 1, enter: "campus", c1: "#bfdbfe", c2: "#60a5fa", info: "东京近郊的老牌私立升学高中，前千金女校，今年正式改为男女混校。这里是主角日常、课程、社团和校内事件的中心。" },
         { id: "saionji-company", graphId: "saionji-company", label: "西园寺企业", short: "西园寺企业", category: "商业", icon: "company", symbol: "🏢", col: 3, row: 1, c1: "#fdba74", c2: "#f97316", info: "西园寺财团相关企业据点，象征爱丽莎家族的财富、人脉和社会影响力。" },
         { id: "police-headquarters", graphId: "police-headquarters", label: "警视厅", short: "警视厅", category: "公共", icon: "company", symbol: "🚓", col: 2, row: 2, c1: "#bae6fd", c2: "#0ea5e9", comingSoon: true, comingSoonMessage: "待续", info: "城镇警务系统的主要据点。报案、询问、监控调取、失踪与异常事件调查会在这里汇集；主角可疑度过高或公开事件扩大时，这里会成为压力来源。" },
-        { id: "general-hospital", graphId: "general-hospital", label: "综合医院", short: "综合医院", category: "公共", icon: "company", symbol: "🏥", col: 3, row: 2, enter: "hospital", c1: "#bbf7d0", c2: "#22c55e", info: "警视厅旁的综合医院，承担急诊、普通诊疗、心理咨询和体检等功能。受伤、异常身体反应、医疗证明、住院探视或警医联动剧情会在这里发生。" },
+    { id: "general-hospital", graphId: "general-hospital", label: "综合医院", short: "综合医院", category: "公共", icon: "company", symbol: "🏥", col: 3, row: 2, c1: "#bbf7d0", c2: "#22c55e", info: "警视厅旁的综合医院，承担急诊、普通诊疗、心理咨询和体检等普通地点功能。" },
         { id: "miyuki-home", graphId: "miyuki-home", label: "深雪的家", short: "深雪的家", category: "住宅", icon: "home", symbol: "🏠", col: 1, row: 3, c1: "#c4b5fd", c2: "#6366f1", info: "月咏深雪的住处。安静、整洁、书卷气重，适合处理学习、班务和私人阅读情节。" },
         { id: "natsumi-home", graphId: "natsumi-home", label: "夏美的家", short: "夏美的家", category: "住宅", icon: "home", symbol: "🏠", col: 2, row: 3, c1: "#fdba74", c2: "#f97316", info: "犬冢夏美的家。生活气息更强，和运动、饮食、训练后的休息场景容易连接。" },
         { id: "saionji-home", graphId: "saionji-home", label: "西园寺的家", short: "西园寺宅邸", category: "住宅", icon: "home", symbol: "🏠", col: 3, row: 3, c1: "#fde68a", c2: "#d97706", info: "西园寺爱丽莎的家。豪宅、佣人和严格家族秩序构成她日常生活的背景。" },
@@ -38800,7 +38772,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   async function settingsOverwriteLineWorldbooks() {
     const stages = {
       police: settingsLineStageValue(ST_POLICE_LINE_KEY),
-      hospital: settingsLineStageValue(ST_HOSPITAL_LINE_KEY),
       ghost: settingsLineStageValue(ST_GHOST_LINE_KEY)
     };
     const results = [];
@@ -38810,13 +38781,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       const sync = await policeAttentionSyncWorldbookLifecycle(stages.police);
       if (!sync?.ok) throw new Error(sync?.reason || "警视厅线世界书阶段同步失败。");
       results.push("警视厅线阶段" + stages.police);
-    }
-    if (stages.hospital > 0) {
-      const install = await encounterInsertPackageWorldbooks(hospitalLinePackage());
-      if (!install?.ok) throw new Error("医院线世界书覆盖失败：" + (install?.failed?.join("；") || install?.reason || "未知错误"));
-      const sync = await hospitalLineSetCompletionEntryEnabled(stages.hospital >= 2);
-      if (!sync?.ok || sync?.missing) throw new Error(sync?.reason || "医院线世界书阶段同步失败。");
-      results.push("医院线阶段" + stages.hospital);
     }
     if (stages.ghost > 0) {
       const install = await encounterInsertPackageWorldbooks(ghostLinePackage());

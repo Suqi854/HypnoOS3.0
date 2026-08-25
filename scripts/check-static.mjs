@@ -18,7 +18,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 const ui = await readFile(new URL('ui/index.html', root));
 const uiText = ui.toString('utf8');
 const uiHash = createHash('sha256').update(uiText.replace(/\r\n/g, '\n')).digest('hex');
-expect(uiHash === 'a7e177cdb76858de7f2af3a6d7b7d39c4f3647009915f715a53a834c7e0d4aeb', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '2c5a302813fd29d8b7cd94c7a81e3dcd5626e77af22aa9f57cab8eac60ce5b61', `UI 基线哈希变化：${uiHash}`);
 const hypnosisRulesSource = await readFile(new URL('src/hypnosis-rules.js', root), 'utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -43,6 +43,8 @@ expect(uiText.includes('HypnoWorldAdaptation/v1') && uiText.includes('generateAd
 expect(uiText.includes('openTimetablePage(calendarTile)') || uiText.includes('openTimetablePage);'), '课程表没有恢复原始专属界面');
 expect(uiText.includes('data-calendar-timetable-toggle') && uiText.includes('timetableAppEnabled()'), '日历缺少课程表显示开关');
 expect(uiText.includes('const ST_HOME_DOCK_IDS = ["settings", "information", "pending-input", "hypno"]'), '底部固定应用顺序不正确');
+expect(uiText.includes('const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "remodel"]') && !uiText.includes('data-profile-action="bad-records"') && !uiText.includes('data-profile-locked-bad-records'), '档案劣迹入口仍在运行路径中');
+expect(!uiText.includes('row: 2, enter: "hospital"') && !uiText.includes('hospital: settingsLineStageValue(ST_HOSPITAL_LINE_KEY)'), '医院线或改造室入口仍在地图/设置运行路径中');
 expect(uiText.includes('normalizeHomeLayoutOrder') && uiText.includes('bindHomeLayoutDrag'), '桌面缺少自动补位或拖动排序');
 expect(uiText.includes('rewardFemaleArchiveEntries') && uiText.includes('rewardItemFemaleArchiveTarget'), '成就任务没有限定女性档案角色');
 expect(uiText.includes('adaptiveTimetableBase()') && uiText.includes('adaptiveCalendarDays()'), '原始日历/课程表没有接入世界书适配数据');
