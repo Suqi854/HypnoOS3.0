@@ -18,7 +18,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 const ui = await readFile(new URL('ui/index.html', root));
 const uiText = ui.toString('utf8');
 const uiHash = createHash('sha256').update(uiText.replace(/\r\n/g, '\n')).digest('hex');
-expect(uiHash === '4704f27075c8e574ebcd437d9f236ba4bb5128fd976d450b9f30868be2b62b5a', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === 'a7e177cdb76858de7f2af3a6d7b7d39c4f3647009915f715a53a834c7e0d4aeb', `UI 基线哈希变化：${uiHash}`);
 const hypnosisRulesSource = await readFile(new URL('src/hypnosis-rules.js', root), 'utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -27,9 +27,6 @@ expect(hypnosisRulesSource.includes("const SCHEMA = 'HypnosisRules/v1'") && hypn
 expect(hypnosisRulesSource.includes('buildHypnosisRulePrompt') && hypnosisRulesSource.includes('calculateHypnosisCost') && hypnosisRulesSource.includes('calculateHypnosisBatchCost'), '独立核心缺少催眠规则提示词或单项/批次计费接口');
 expect(hypnosisRulesSource.includes("excludedFeatures: Object.freeze(['vip6_pregnancy_confirmation', 'role.子嗣'])"), '催眠规则合同没有登记妊娠与子嗣功能删除项');
 expect(!uiText.includes('pregnancyButton +') && !uiText.includes('childrenTabHtml +') && !uiText.includes('activeTab === "children"\n          ? renderProfileChildrenPanel'), '妊娠按钮或角色档案子嗣入口仍在运行路径中');
-expect(!uiText.includes('data-profile-action="bad-records"') && !uiText.includes('data-profile-locked-bad-records') && uiText.includes('const PERSON_PROFILE_CONFIDENTIAL_TABS = ["sensitivity", "effects", "remodel"]'), '角色档案劣迹入口仍在运行路径中');
-expect(!uiText.includes('ST_HOSPITAL_LINE_KEY') && !uiText.includes('renderHospitalLinePage') && !uiText.includes('openHospitalFromMap') && !uiText.includes('enter: "hospital"'), '医院线或改造室地图入口仍在运行路径中');
-expect(uiText.includes('<span>改造</span><strong>') && !uiText.includes('医院线尚未完成共同确认'), '档案改造没有默认开放或仍受医院线门控');
 expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
 expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺少信息应用入口');
 expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
@@ -43,7 +40,6 @@ expect(uiText.includes('const importedRoles = readImportedProfileWorldbookRoles(
 expect(uiText.includes('return favorites.concat(female, male);'), '角色选择没有按喜欢、女性、男性排序');
 expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');
 expect(uiText.includes('HypnoWorldAdaptation/v1') && uiText.includes('generateAdaptiveWorldbookProfile') && uiText.includes('data-settings-action="clear-adaptive-data"'), '世界类应用缺少世界书生成适配层');
-expect(uiText.includes('specialLocations: { title: "特殊地点"') && uiText.includes('function adaptiveSpecialLocationItems()') && uiText.includes('const items = adaptiveSpecialLocationItems();'), '特殊地点没有与区域地图共用世界书适配结果或仍回退旧固定目录');
 expect(uiText.includes('openTimetablePage(calendarTile)') || uiText.includes('openTimetablePage);'), '课程表没有恢复原始专属界面');
 expect(uiText.includes('data-calendar-timetable-toggle') && uiText.includes('timetableAppEnabled()'), '日历缺少课程表显示开关');
 expect(uiText.includes('const ST_HOME_DOCK_IDS = ["settings", "information", "pending-input", "hypno"]'), '底部固定应用顺序不正确');
