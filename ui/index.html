@@ -38821,7 +38821,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '<div class="st-model-connector-grid st-model-api-fields">' +
           '<label class="wide"><span>端点（基础 URL）</span><input type="url" data-connector-field="endpoint" value="' + escapeAttr(value.endpoint) + '" placeholder="https://example.com/v1"></label>' +
           '<label class="wide st-model-secret"><span>API 密钥</span><input type="password" data-connector-secret="text" value="" placeholder="' + (textSecretReady ? "已保存于当前浏览器会话；留空保持" : "默认仅保留当前浏览器会话") + '"></label>' +
-          '<label class="wide"><span>模型名</span><input data-connector-field="model" value="' + escapeAttr(value.model) + '" placeholder="例如 deepseek-chat"></label>' +
+          '<div class="wide st-model-picker"><label><span>模型名</span><input data-connector-field="model" value="' + escapeAttr(value.model) + '" placeholder="请先加载并选择模型" readonly></label><button type="button" class="st-settings-button" data-connector-load-models="text">加载模型</button><select data-connector-model-list="text" hidden aria-label="可用模型列表"><option value="">请选择模型</option></select><small data-connector-model-status>' + (value.model ? '当前选择：' + escapeHtml(value.model) : '输入端点和密钥后加载模型。') + '</small></div>' +
           '<label><span>最大回复长度</span><input type="number" min="64" max="200000" data-connector-field="maxTokens" value="' + value.maxTokens + '"></label>' +
           '<label><span>温度</span><input type="number" step="0.1" min="0" max="2" data-connector-field="temperature" value="' + value.temperature + '"></label>' +
           '<label><span>Top P</span><input type="number" step="0.05" min="0" max="1" data-connector-field="topP" value="' + value.topP + '"></label>' +
@@ -38859,6 +38859,63 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function bindModelConnectorSettings(page) {
+    page.querySelectorAll(".st-model-connector-switch input").forEach((input) => {
+      input.addEventListener("change", () => {
+        const label = input.closest(".st-model-connector-switch")?.querySelector("span");
+        if (label) label.textContent = input.checked ? "已启用" : "未启用";
+      });
+    });
+    page.querySelectorAll('.st-model-mode input[type="radio"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        page.querySelectorAll(".st-model-mode label").forEach((label) => label.classList.toggle("active", Boolean(label.querySelector("input")?.checked)));
+      });
+    });
+    page.querySelectorAll("[data-connector-load-models]").forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        settingsStopEvent(event);
+        const kind = button.getAttribute("data-connector-load-models") || "text";
+        const config = readConnectorProfileForm(page, kind);
+        const profile = config[kind];
+        const status = page.querySelector("[data-connector-model-status]");
+        const list = page.querySelector('[data-connector-model-list="' + kind + '"]');
+        const modelInput = page.querySelector('[data-connector-field="model"]');
+        const typedSecret = String(page.querySelector('[data-connector-secret="' + kind + '"]')?.value || "").trim();
+        const secret = typedSecret || readModelConnectorSessionSecret(kind);
+        if (profile.mode !== "direct") {
+          if (status) status.textContent = "请先选择“自定义直连”。";
+          return;
+        }
+        if (!String(profile.endpoint || "").trim()) {
+          if (status) status.textContent = "请先填写端点（基础 URL）。";
+          return;
+        }
+        button.disabled = true;
+        if (status) status.textContent = "正在加载模型…";
+        try {
+          const models = await loadIndependentConnectorModels(profile, secret);
+          if (!list) throw new Error("模型列表控件不可用。");
+          list.replaceChildren(new Option("请选择模型", ""));
+          models.forEach((model) => list.appendChild(new Option(model, model)));
+          list.hidden = false;
+          list.value = models.includes(String(modelInput?.value || "")) ? String(modelInput.value) : "";
+          if (status) status.textContent = "已加载 " + models.length + " 个模型，请从列表选择。";
+        } catch (error) {
+          if (list) list.hidden = true;
+          if (status) status.textContent = "加载失败：" + String(error?.message || error || "未知错误");
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+    page.querySelectorAll("[data-connector-model-list]").forEach((list) => {
+      list.addEventListener("change", () => {
+        const kind = list.getAttribute("data-connector-model-list") || "text";
+        const modelInput = page.querySelector('[data-connector-profile="' + kind + '"] [data-connector-field="model"]');
+        const status = page.querySelector("[data-connector-model-status]");
+        if (modelInput) modelInput.value = String(list.value || "");
+        if (status) status.textContent = list.value ? ("当前选择：" + list.value) : "请选择一个模型。";
+      });
+    });
     page.querySelectorAll("[data-connector-discard]").forEach((button) => {
       button.addEventListener("click", (event) => {
         settingsStopEvent(event);
@@ -38882,6 +38939,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         settingsStopEvent(event);
         const kind = button.getAttribute("data-connector-save") || "text";
         const config = readConnectorProfileForm(page, kind);
+        if (config[kind]?.mode === "direct" && !String(config[kind]?.model || "").trim()) {
+          page.dataset.settingsStatus = "保存失败：请先加载并选择模型。";
+          renderSettingsPage(page);
+          return;
+        }
         writeModelConnectorConfig(config);
         const secret = String(page.querySelector('[data-connector-secret="' + kind + '"]')?.value || "").trim();
         if (secret) writeModelConnectorSessionSecret(kind, secret);
@@ -38903,6 +38965,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         settingsStopEvent(event);
         const kind = button.getAttribute("data-connector-test") || "text";
         const config = readConnectorProfileForm(page, kind);
+        if (config[kind]?.mode === "direct" && !String(config[kind]?.model || "").trim()) {
+          page.dataset.settingsStatus = "测试失败：请先加载并选择模型。";
+          renderSettingsPage(page);
+          return;
+        }
         writeModelConnectorConfig(config);
         const secret = String(page.querySelector('[data-connector-secret="' + kind + '"]')?.value || "").trim();
         if (secret) writeModelConnectorSessionSecret(kind, secret);
@@ -39170,7 +39237,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     if (document.getElementById("st-model-preset-style")) return;
     const style = document.createElement("style");
     style.id = "st-model-preset-style";
-    style.textContent = `.st-model-preset-card{padding:13px}.st-model-preset-name{display:grid;gap:5px}.st-model-preset-name>span,.st-model-mode legend{color:#cbd5e1;font-size:11px;font-weight:900}.st-model-preset-name input{width:100%;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:10px;font-weight:750}.st-model-mode{margin:0;padding:0;border:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}.st-model-mode legend{grid-column:1/-1;margin-bottom:5px}.st-model-mode label{min-height:40px;border:1px solid rgba(148,163,184,.2);border-radius:9px;background:#151d2a;display:flex;align-items:center;justify-content:center;gap:7px;color:#cbd5e1;font-size:11px;font-weight:850}.st-model-mode label.active{border-color:#5eead4;background:#287b79;color:#071414}.st-model-mode input{position:absolute;opacity:0;pointer-events:none}.st-model-api-fields .wide{grid-column:1/-1}.st-model-api-fields label small{color:#77849a;font-size:9px;line-height:1.45}.st-model-api-fields textarea{min-height:82px}.st-model-clear-key{justify-self:start;width:auto!important;min-height:34px;padding:0 12px}`;
+    style.textContent = `.st-model-preset-card{padding:13px}.st-model-preset-name{display:grid;gap:5px}.st-model-preset-name>span,.st-model-mode legend{color:#cbd5e1;font-size:11px;font-weight:900}.st-model-preset-name input{width:100%;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:10px;font-weight:750}.st-model-mode{margin:0;padding:0;border:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}.st-model-mode legend{grid-column:1/-1;margin-bottom:5px}.st-model-mode label{min-height:40px;border:1px solid rgba(148,163,184,.2);border-radius:9px;background:#151d2a;display:flex;align-items:center;justify-content:center;gap:7px;color:#cbd5e1;font-size:11px;font-weight:850}.st-model-mode label.active{border-color:#5eead4;background:#287b79;color:#071414}.st-model-mode input{position:absolute;opacity:0;pointer-events:none}.st-model-api-fields .wide{grid-column:1/-1}.st-model-api-fields label small{color:#77849a;font-size:9px;line-height:1.45}.st-model-api-fields textarea{min-height:82px}.st-model-picker{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:end}.st-model-picker label{min-width:0}.st-model-picker input[readonly]{cursor:default;color:#e2e8f0}.st-model-picker button{width:auto!important;min-width:92px;min-height:38px}.st-model-picker select{grid-column:1/-1;width:100%;border:1px solid rgba(94,234,212,.48);border-radius:9px;background:#111827;color:#f8fafc;padding:10px;font-weight:750}.st-model-picker small{grid-column:1/-1;color:#8fa0b8;font-size:9px;line-height:1.45}.st-model-clear-key{justify-self:start;width:auto!important;min-height:34px;padding:0 12px}`;
     document.head.appendChild(style);
   }
 
@@ -39649,14 +39716,64 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function connectorShouldUseHostProxy(profile) {
-    return profile?.mode !== "direct" || connectorEndpointIsExternal(profile?.endpoint);
+    return profile?.mode !== "direct";
   }
 
   function connectorCustomApiBase(endpoint) {
     const source = String(endpoint || "").trim().replace(/\/+$/, "");
     return source
       .replace(/\/chat\/completions$/i, "")
-      .replace(/\/completions$/i, "");
+      .replace(/\/completions$/i, "")
+      .replace(/\/models$/i, "");
+  }
+
+  function connectorChatCompletionsUrl(endpoint) {
+    const base = connectorCustomApiBase(endpoint);
+    if (!base) throw new Error("请填写端点（基础 URL）。");
+    return base + "/chat/completions";
+  }
+
+  function connectorModelsUrl(endpoint) {
+    const base = connectorCustomApiBase(endpoint);
+    if (!base) throw new Error("请填写端点（基础 URL）。");
+    return base + "/models";
+  }
+
+  async function connectorErrorMessage(response, prefix) {
+    const raw = await response.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch {}
+    const detail = data?.error?.message || data?.message || raw || ("HTTP " + response.status);
+    return prefix + String(detail).slice(0, 500);
+  }
+
+  async function loadIndependentConnectorModels(profile, secret = "") {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    try {
+      const headers = { Accept: "application/json" };
+      Object.assign(headers, connectorAdditionalHeaders(profile.additionalHeaders));
+      if (String(secret || "").trim()) headers.Authorization = "Bearer " + String(secret).trim();
+      const response = await fetch(connectorModelsUrl(profile.endpoint), {
+        method: "GET",
+        headers,
+        credentials: "omit",
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(await connectorErrorMessage(response, "模型列表返回错误："));
+      const data = await response.json();
+      const source = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : Array.isArray(data) ? data : [];
+      const models = [...new Set(source.map((item) => String((item?.id ?? item?.name ?? item) || "").trim()).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+      if (!models.length) throw new Error("接口没有返回可选择的模型。");
+      return models;
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("加载模型超时，请检查端点或网络。");
+      if (error instanceof TypeError) throw new Error("无法连接模型端点；请检查基础 URL、HTTPS 与接口的 CORS 设置。");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   async function connectorHostRequestHeaders() {
@@ -39792,14 +39909,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       if (useHostProxy) {
         data = await invokeIndependentTextModelThroughHost({ ...profile, maxTokens: requestedMaxTokens }, messages, signal);
       } else {
-        const response = await fetch(String(profile.endpoint || "").trim(), {
+        const response = await fetch(connectorChatCompletionsUrl(profile.endpoint), {
           method: "POST",
           headers: independentConnectorHeaders("text", profile),
-          credentials: "same-origin",
+          credentials: "omit",
           signal,
           body: JSON.stringify(body)
         });
-        if (!response.ok) throw new Error("文生文插头返回 " + response.status + "。");
+        if (!response.ok) throw new Error(await connectorErrorMessage(response, "文生文插头返回错误："));
         data = await response.json();
       }
       const text = independentConnectorTextContent(data);

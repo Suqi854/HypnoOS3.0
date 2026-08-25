@@ -14,7 +14,17 @@ const browser = await chromium.launch({
 async function openPhone(viewport, screenshotPrefix) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   const errors = [];
-  page.on('pageerror', (error) => errors.push(String(error)));
+  const directRequests = [];
+  page.on('pageerror', (error) => errors.push(String(error?.stack || error)));
+  await page.route('https://qa-openai.example/**', async (route) => {
+    const request = route.request();
+    directRequests.push({ url: request.url(), method: request.method(), headers: request.headers(), body: request.method() === 'POST' ? request.postDataJSON() : null });
+    if (request.url().endsWith('/models')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'qa-model-small' }, { id: 'qa-model-pro' }] }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: 'OK' } }] }) });
+  });
   await page.addInitScript(() => {
     globalThis.__hypnoosQaLegacyDestroyed = 0;
     globalThis.__ST_HYPNOOS_FLOATING_SINGLETON__ = {
@@ -62,7 +72,12 @@ async function openPhone(viewport, screenshotPrefix) {
   void frameHandle;
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
   assert.ok(frame, '手机 iframe 未加载');
-  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  try {
+    await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  } catch (error) {
+    console.error('phoneBootFailure', { errors, url: frame.url(), text: await frame.locator('body').innerText().catch(() => '') });
+    throw error;
+  }
 
   const hostMetrics = await page.evaluate(() => {
     const shadow = document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot;
@@ -161,7 +176,32 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.getByRole('button', { name: '模型插头' }).click();
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '设置应用仍叠加旧 React 顶栏');
   const settingsText = await frame.locator('.st-settings-app').innerText();
-  for (const label of ['API 预设', '预设名称', '酒馆后端代理', '自定义直连', '端点（基础 URL）', 'API 密钥', '模型名', '最大回复长度', '附加主体参数', '排除主体参数', '附加请求标头', '保存当前预设']) assert.match(settingsText, new RegExp(label));
+  for (const label of ['API 预设', '预设名称', '酒馆后端代理', '自定义直连', '端点（基础 URL）', 'API 密钥', '模型名', '加载模型', '最大回复长度', '附加主体参数', '排除主体参数', '附加请求标头', '保存当前预设']) assert.match(settingsText, new RegExp(label));
+  const modelInput = frame.locator('[data-connector-field="model"]');
+  assert.equal(await modelInput.getAttribute('readonly'), '', '模型名仍允许手动输入');
+  await frame.locator('[data-connector-field="mode"][value="direct"]').check({ force: true });
+  await frame.locator('[data-connector-field="enabled"]').check();
+  await frame.locator('[data-connector-field="endpoint"]').fill('https://qa-openai.example/v1');
+  await frame.locator('[data-connector-secret="text"]').fill('qa-secret-not-logged');
+  await frame.getByRole('button', { name: '加载模型' }).click();
+  const modelList = frame.locator('[data-connector-model-list="text"]');
+  await modelList.waitFor({ state: 'visible' });
+  assert.deepEqual(await modelList.locator('option').allTextContents(), ['请选择模型', 'qa-model-pro', 'qa-model-small']);
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-model-list.png`, fullPage: true });
+  await modelList.selectOption('qa-model-pro');
+  assert.equal(await modelInput.inputValue(), 'qa-model-pro');
+  await frame.getByRole('button', { name: '保存当前预设' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('文生文插头配置已保存'));
+  await frame.getByRole('button', { name: '测试连接' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('文生文插头连接成功'));
+  const savedConnector = await frame.evaluate(() => JSON.parse(localStorage.getItem('hypnoos:model-connectors:v1')));
+  assert.equal(savedConnector.text.mode, 'direct');
+  assert.equal(savedConnector.text.model, 'qa-model-pro');
+  assert.equal(savedConnector.text.endpoint, 'https://qa-openai.example/v1');
+  assert.equal(directRequests[0]?.url, 'https://qa-openai.example/v1/models');
+  assert.equal(directRequests[1]?.url, 'https://qa-openai.example/v1/chat/completions');
+  assert.equal(directRequests[1]?.body?.model, 'qa-model-pro');
+  assert.equal(directRequests[1]?.headers?.authorization, 'Bearer qa-secret-not-logged');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-model-settings.png`, fullPage: true });
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
@@ -200,7 +240,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.6.4-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.6.4-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.6.5-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.6.5-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

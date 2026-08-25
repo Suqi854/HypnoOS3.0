@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '5d5accddac591d676d4744281cabc9fef93b2404730f93d9e51fb5a145f158af', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '99f45e074ab9126e22c2e79de59392e2134980d3b31f56dfabed3b707dcb757a', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -27,6 +27,10 @@ expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺�
 for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {
   expect(uiText.includes(label), `文生文连接器缺少预设字段：${label}`);
 }
+expect(uiText.includes('data-connector-load-models="text"'), '自定义直连缺少加载模型按钮');
+expect(uiText.includes('data-connector-field="model"') && uiText.includes('placeholder="请先加载并选择模型" readonly'), '模型名必须由列表只读回填');
+expect(uiText.includes('return base + "/models"'), '自定义直连缺少模型列表端点');
+expect(uiText.includes('return base + "/chat/completions"'), '自定义直连缺少生成端点');
 expect(uiText.includes('removeReactChrome(root)'), '切换内部应用时没有清理旧 React 顶栏');
 expect(uiText.includes('#app>.w-full.flex.items-center.justify-center.p-2>div:first-child'), '手机前端缺少重复机壳消除规则');
 expect(!removedFeaturePattern.test(uiText), '手机前端不得残留已移除功能的运行代码');
