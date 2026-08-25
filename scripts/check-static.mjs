@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '9fe2bc9d9a370385c3da53d51bde167ab998994af38c39c3e182c42f54a8d618', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '45898c8b40a9a7a6fbc6667e8f0a93ab9d5f08cfbe715bba9a135feddf7b2000', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -27,6 +27,8 @@ expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺�
 expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
 expect(uiText.includes('data-information-action="refresh-format"') && uiText.includes('st-information-feedback'), '信息应用缺少按键反馈');
 expect(uiText.includes('data-profile-gender-correction'), '人物档案缺少手动性别修正选择框');
+expect(uiText.includes('const importedRoles = readImportedProfileWorldbookRoles();') && uiText.includes('return { ...importedRoles, ...adaptiveWorldbookRoleCache, ...mvuRoles };'), '催眠目标角色源没有合并持久化档案与MVU变量');
+expect(uiText.includes('return favorites.concat(female, male);'), '角色选择没有按喜欢、女性、男性排序');
 expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');
 expect(uiText.includes('HypnoWorldAdaptation/v1') && uiText.includes('generateAdaptiveWorldbookProfile') && uiText.includes('data-settings-action="clear-adaptive-data"'), '世界类应用缺少世界书生成适配层');
 expect(uiText.includes('openTimetablePage(calendarTile)') || uiText.includes('openTimetablePage);'), '课程表没有恢复原始专属界面');
@@ -44,6 +46,8 @@ expect(uiText.includes('diagnosticRedact') && uiText.includes('[REDACTED]') && u
 expect(uiText.includes('.st-settings-worldbook-option input:checked') && uiText.includes('background:#ff3f91'), '世界书下拉多选缺少粉色勾选反馈');
 expect(uiText.includes("html: '<strong>档案</strong>'"), '男女档案顶部没有显示档案');
 expect(uiText.includes('const SETTINGS_CHEAT_UNLOCK_KEY = "666666"') && uiText.includes('data-settings-cheat-key'), '作弊模式缺少独立密钥门控');
+expect(uiText.includes('data-settings-cheat-indicator') && uiText.includes('作弊模式开启中') && uiText.includes('.st-settings-cheat-panel.is-active .st-settings-button.danger'), '作弊模式缺少红色开启状态条');
+expect(!uiText.includes('const confirmed = await encounterConfirm(page, {\n      title: active ? "开启作弊模式"'), '正确密钥后仍有额外确认阻断作弊模式');
 expect(!uiText.includes('openAdaptiveWorldApp(calendarTile, "calendar")'), '日历仍被统一卡片页覆盖');
 expect(uiText.includes('encounterBuiltInPackagesCache = [];') && uiText.includes('encounterResetLibraryFor070Once'), '邂逅内置角色包没有清空');
 for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {

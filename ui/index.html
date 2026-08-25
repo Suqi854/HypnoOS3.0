@@ -4599,6 +4599,7 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-settings-button{min-width:0;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:rgba(255,255,255,.07);color:rgba(248,250,252,.88);padding:9px 8px;font-size:11px;font-weight:950;cursor:pointer}
 .st-settings-button.primary{border-color:rgba(45,212,191,.42);background:linear-gradient(135deg,rgba(20,184,166,.38),rgba(14,165,233,.26));color:#fff}
 .st-settings-button.danger{border-color:rgba(248,113,113,.34);background:rgba(127,29,29,.28);color:#fecaca}
+.st-settings-cheat-panel.is-active .st-settings-button.danger{border-color:#fb7185;background:linear-gradient(135deg,#b91c1c,#e11d48);color:#fff;box-shadow:0 8px 20px rgba(225,29,72,.28)}
 .st-settings-button:disabled{opacity:.46;cursor:not-allowed;filter:saturate(.6)}
 .st-settings-code{width:100%;min-height:96px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:rgba(2,6,23,.54);color:#dbeafe;outline:none;padding:9px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;line-height:1.45;resize:vertical}
 .st-settings-region-select{width:100%;height:34px;min-height:34px;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:0 9px;font-size:10px;font-weight:800;outline:none}
@@ -11615,7 +11616,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       const preview = selected.length ? selected.slice(0, 2).join("、") + (selected.length > 2 ? " +" + (selected.length - 2) : "") : "点击选择";
       const options = available.length
         ? available.map((name) => '<label><input type="checkbox" data-hypnosis-select-option="role" data-feature-id="' + escapeAttr(featureId) + '" value="' + escapeAttr(name) + '"' + (selectedSet.has(name) ? " checked" : "") + '><span>' + escapeHtml(name) + '</span></label>').join("")
-        : '<em>当前变量里没有可选择角色</em>';
+        : '<em>当前档案和变量里没有可选择角色</em>';
       return '<div class="st-hypnosis-select"><span>目标角色</span>' +
         '<button type="button" class="st-hypnosis-pick-button" data-hypnosis-picker-toggle data-picker-type="role" data-feature-id="' + escapeAttr(featureId) + '" aria-expanded="' + (open ? "true" : "false") + '"><i class="st-hypnosis-pick-plus">+</i><strong>' + escapeHtml(preview) + '</strong><small>' + selected.length + '人</small></button>' +
         (open ? '<div class="st-hypnosis-picker">' + options + '</div>' : '') +
@@ -12767,7 +12768,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const variables = activeStatDataReadScope !== undefined ? activeStatDataReadScope : getLatestStatDataSync();
     const roles = variables?.["角色"];
     const mvuRoles = roles && typeof roles === "object" && !Array.isArray(roles) ? roles : {};
-    return { ...adaptiveWorldbookRoleCache, ...mvuRoles };
+    const importedRoles = readImportedProfileWorldbookRoles();
+    return { ...importedRoles, ...adaptiveWorldbookRoleCache, ...mvuRoles };
   }
 
   // 人物档案一次同步 render 只读取一次当前楼层快照。这里只保存调用栈内
@@ -13058,7 +13060,13 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
   function sortedStatsRoleNames(roles) {
     const base = Object.keys(roles || {}).filter(Boolean).sort((a, b) => a.localeCompare(b, "zh-CN"));
-    return orderRoleNamesByFavorites(base);
+    const available = new Set(base);
+    const favorites = readFavoriteRoleNames().filter((name) => available.has(name));
+    const favoriteSet = new Set(favorites);
+    const remaining = base.filter((name) => !favoriteSet.has(name));
+    const female = remaining.filter((name) => !isMaleRole(name, roles?.[name]));
+    const male = remaining.filter((name) => isMaleRole(name, roles?.[name]));
+    return favorites.concat(female, male);
   }
 
   function isPlainObject(value) {
@@ -38914,7 +38922,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     try {
       if (active) localStorage.setItem(settingsCheatModeStorageKey(), "1");
       else localStorage.removeItem(settingsCheatModeStorageKey());
-    } catch {}
+      return settingsCheatModeActive() === Boolean(active);
+    } catch { return false; }
   }
 
   function settingsCheatModePayload(action) {
@@ -38948,11 +38957,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   async function settingsSetCheatModeWorldbooks(active) {
     const fallbackName = CARD_WORLD_BOOK_NAME;
     const hard = await encounterSetWorldbookCommentsEnabled(fallbackName, ["难度加大"], !active, { create: false });
-    if (!hard?.ok && !hard?.missing) return { ok: false, reason: hard?.reason || "难度加大世界书切换失败。" };
     const cheat = await encounterSetWorldbookCommentsEnabled(fallbackName, ["作弊模式"], active, { create: false });
-    if (!cheat?.ok && !cheat?.missing) return { ok: false, reason: cheat?.reason || "作弊模式世界书切换失败。" };
-    if (cheat?.missing) return { ok: false, reason: "没有找到《作弊模式》世界书条目，请先使用3.0角色卡或重新写回卡片。" };
-    return { ok: true, hard, cheat };
+    const warnings = [];
+    if (!hard?.ok || hard?.missing) warnings.push(hard?.reason || "没有找到《难度加大》世界书条目");
+    if (!cheat?.ok || cheat?.missing) warnings.push(cheat?.reason || "没有找到《作弊模式》世界书条目");
+    return { ok: true, hard, cheat, warnings };
   }
 
   function settingsTextPrompt(page, options = {}) {
@@ -39015,44 +39024,42 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   async function settingsToggleCheatMode(page, active, cheatKey = "") {
-    if (!requireWritablePhoneFloor()) {
-      page.dataset.settingsStatus = "历史楼层只读；切回当前楼后才能切换作弊模式。";
-      renderSettingsPage(page);
-      return;
-    }
     if (active && String(cheatKey || "") !== SETTINGS_CHEAT_UNLOCK_KEY) {
       page.dataset.settingsStatus = "作弊模式未解锁：密钥错误。";
+      diagnosticLog("warn", "cheat.unlock.rejected", { reason: "invalid-key" });
       renderSettingsPage(page);
       return;
     }
     const action = active ? "开启" : "关闭";
-    const warning = active
-      ? "即将开启作弊模式。\n\n这会关闭《难度加大》世界书，并开启《作弊模式》世界书；AI会允许好感/服从更快增长，但仍不得破坏角色人设、剧情进展和前端条件。\n\n继续？"
-      : "即将关闭作弊模式。\n\n这会关闭《作弊模式》世界书，并重新开启《难度加大》世界书；后续楼层恢复普通难度。\n\n继续？";
-    const confirmed = await encounterConfirm(page, {
-      title: active ? "开启作弊模式" : "关闭作弊模式",
-      message: warning,
-      confirmText: active ? "继续开启" : "继续关闭",
-      cancelText: "取消"
-    });
-    if (!confirmed) return;
-    page.dataset.settingsStatus = "正在" + action + "作弊模式并切换世界书...";
+    page.dataset.settingsStatus = "正在" + action + "作弊模式...";
     renderSettingsPage(page);
+    if (!settingsSetCheatModeActive(active)) {
+      page.dataset.settingsStatus = action + "作弊模式失败：浏览器未能保存作弊模式状态。";
+      diagnosticLog("error", "cheat.toggle.failure", { active, message: "storage-write-failed" });
+      renderSettingsPage(page);
+      return;
+    }
+    let result;
     try {
-      const result = await settingsSetCheatModeWorldbooks(active);
-      if (!result?.ok) throw new Error(result?.reason || "世界书切换失败。");
-      settingsSetCheatModeActive(active);
+      result = await settingsSetCheatModeWorldbooks(active);
+    } catch (worldbookError) {
+      result = { ok: true, warnings: ["世界书兼容切换失败：" + String(worldbookError?.message || worldbookError || "未知错误")] };
+    }
+    const warnings = [...(result?.warnings || [])];
+    try {
       if (active) {
         appendAppOperation(settingsCheatModePayload("作弊模式启动"));
-        page.dataset.settingsStatus = "作弊模式已开启：《难度加大》已关闭，《作弊模式》已启用，暂存区已锁定“作弊模式启动”。";
+        settingsCheatModeReminder();
       } else {
         window.__ST_SET_CHEAT_MODE_STATUS_REMINDER__?.(null);
         appendAppOperation(settingsCheatModePayload("作弊模式关闭"));
-        page.dataset.settingsStatus = "作弊模式已关闭：《作弊模式》已关闭，《难度加大》已启用，暂存区已锁定“作弊模式关闭”。";
       }
-    } catch (error) {
-      page.dataset.settingsStatus = action + "作弊模式失败：" + String(error?.message || error || "未知错误");
+    } catch (operationError) {
+      warnings.push("暂存提醒写入失败：" + String(operationError?.message || operationError || "未知错误"));
     }
+    const warningText = warnings.length ? "；兼容提示：" + warnings.join("；") : "";
+    page.dataset.settingsStatus = (active ? "作弊模式已开启。" : "作弊模式已关闭。") + warningText;
+    diagnosticLog("info", active ? "cheat.enabled" : "cheat.disabled", { worldbookWarnings: warnings.length });
     renderSettingsPage(page);
   }
 
@@ -39107,7 +39114,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const logs = readDiagnosticLogs();
     return '<section class="st-settings-panel st-settings-log-panel">' +
       '<h3>运行日志</h3><p>用于排查世界书读取、模型调用、档案导入及运行异常。日志仅保存在当前浏览器，最多保留 ' + ST_DIAGNOSTIC_LOG_LIMIT + ' 条；密钥、令牌和敏感请求头会自动隐藏，提示词与世界书正文不会写入。</p>' +
-      '<div class="st-settings-log-meta"><span>当前 ' + logs.length + ' 条</span><span>HypnoOS 0.7.5</span></div>' +
+      '<div class="st-settings-log-meta"><span>当前 ' + logs.length + ' 条</span><span>HypnoOS 0.7.6</span></div>' +
       '<div class="st-settings-actions is-three"><button type="button" class="st-settings-button" data-settings-log-action="copy">复制日志</button><button type="button" class="st-settings-button" data-settings-log-action="download">下载日志</button><button type="button" class="st-settings-button danger" data-settings-log-action="clear" ' + (!logs.length ? "disabled" : "") + '>清空日志</button></div>' +
       '<pre class="st-settings-log-view" data-settings-log-view tabindex="0">' + escapeHtml(diagnosticLogText()) + '</pre>' +
       '</section>';
@@ -39796,7 +39803,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           '<p>当前状态：<strong>' + (cheatActive ? "已开启" : "未开启") + '</strong>。开启后会关闭《难度加大》并启用《作弊模式》；关闭则反向切回。它只加快好感/服从等成长，不应破坏人设、剧情线或前端条件。</p>' +
           (!cheatActive ? '<label><span>开启密钥</span><input class="st-settings-code st-settings-cheat-key" type="password" data-settings-cheat-key autocomplete="off" inputmode="numeric" placeholder="请输入密钥"></label>' : '') +
           '<div class="st-settings-actions is-single">' +
-            '<button type="button" class="st-settings-button ' + (cheatActive ? "danger" : "primary") + '" data-settings-action="' + (cheatActive ? "cheat-off" : "cheat-on") + '">' + (cheatActive ? "关闭作弊模式" : "开启作弊模式") + '</button>' +
+            '<button type="button" class="st-settings-button ' + (cheatActive ? "danger" : "primary") + '" data-settings-action="' + (cheatActive ? "cheat-off" : "cheat-on") + '"' + (cheatActive ? ' data-settings-cheat-indicator title="点击关闭作弊模式"' : '') + '>' + (cheatActive ? "作弊模式开启中" : "开启作弊模式") + '</button>' +
           '</div>' +
         '</section>' +
         '<section class="st-settings-panel">' +

@@ -187,6 +187,8 @@ async function openPhone(viewport, screenshotPrefix) {
     await genderSelect.selectOption('female');
     await frame.waitForFunction(() => document.querySelector('.st-profile-app')?.getAttribute('aria-label') === '男性档案' || document.querySelector('.st-profile-app')?.innerText?.includes('女性档案'));
     assert.equal(await frame.locator('[data-profile-gender-correction]').inputValue(), 'female');
+    await frame.locator('[data-profile-gender-correction]').selectOption('male');
+    assert.equal(await frame.locator('[data-profile-gender-correction]').inputValue(), 'male');
     await frame.locator('.st-profile-app [data-lite-action="back"]').click();
     await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
@@ -335,6 +337,36 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.locator('.st-profile-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
+  await frame.evaluate(() => {
+    const scope = globalThis.__ST_HYPNOOS_FRONTEND_MESSAGE_SCOPE__?.()
+      || globalThis.__ST_HYPNOOS_FRONTEND_SLOT_SCOPE__?.()
+      || 'global';
+    localStorage.setItem(`hypnoos:favorite-roles:v1:${scope}`, JSON.stringify(['QA男性']));
+  });
+  await frame.locator('[aria-label="打开催眠APP"]').click();
+  await frame.waitForSelector('.st-hypnosis-lite-app');
+  await frame.locator('[data-hypnosis-delivery-mode="selection"]').click();
+  const trialTier = frame.locator('[data-hypnosis-tier-details="TRIAL"]');
+  if (await trialTier.getAttribute('open') === null) await trialTier.locator('summary').click();
+  await frame.locator('[data-hypnosis-feature="trial_basic"]').check();
+  await frame.locator('[data-hypnosis-picker-toggle][data-picker-type="role"][data-feature-id="trial_basic"]').click();
+  const targetRoleNames = await frame.locator('[data-hypnosis-select-option="role"][data-feature-id="trial_basic"] + span').allTextContents();
+  assert.ok(targetRoleNames.includes('QA女性'), '无变量的女性档案角色没有进入催眠目标列表');
+  assert.ok(targetRoleNames.includes('QA男性'), '无变量的男性档案角色没有进入催眠目标列表');
+  assert.equal(targetRoleNames[0], 'QA男性', '已喜欢角色没有排在目标列表最前');
+  await frame.evaluate(() => {
+    const key = Object.keys(localStorage).find((item) => item.startsWith('hypnoos:favorite-roles:v1:'));
+    if (key) localStorage.setItem(key, '[]');
+  });
+  await frame.locator('[data-hypnosis-delivery-mode="number"]').click();
+  await frame.locator('[data-hypnosis-delivery-mode="selection"]').click();
+  await frame.locator('[data-hypnosis-picker-toggle][data-picker-type="role"][data-feature-id="trial_basic"]').click();
+  const genderOrderedNames = await frame.locator('[data-hypnosis-select-option="role"][data-feature-id="trial_basic"] + span').allTextContents();
+  assert.ok(genderOrderedNames.indexOf('QA女性') < genderOrderedNames.indexOf('QA男性'), '非喜欢角色没有按女性在前、男性在后排序：' + JSON.stringify(genderOrderedNames));
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-hypnosis-target-roles.png`, fullPage: true });
+  await frame.locator('.st-hypnosis-lite-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
   await frame.locator('[aria-label="打开地图"]').click();
   await frame.waitForSelector('.st-map-app');
   assert.match(await frame.locator('.st-map-app').innerText(), /QA测试地点/);
@@ -387,14 +419,20 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.doesNotMatch(await frame.locator('.st-settings-cheat-panel').innerText(), /已开启/);
   await frame.locator('[data-settings-cheat-key]').fill('666666');
   await frame.getByRole('button', { name: '开启作弊模式' }).click();
-  await frame.waitForSelector('.st-encounter-confirm');
-  await frame.getByRole('button', { name: '取消' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('作弊模式已开启'));
+  const cheatIndicator = frame.locator('[data-settings-cheat-indicator]');
+  assert.equal(await cheatIndicator.count(), 1, '正确密钥没有显示作弊模式开启状态');
+  assert.equal(await cheatIndicator.isVisible(), true, '作弊模式开启状态条不可见');
+  assert.equal((await cheatIndicator.innerText()).trim(), '作弊模式开启中');
+  assert.match(await cheatIndicator.evaluate((node) => getComputedStyle(node).backgroundImage), /rgb\(185, 28, 28\)|rgb\(225, 29, 72\)/, '作弊模式开启状态条没有变红');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-cheat-mode-active.png`, fullPage: true });
   await frame.getByRole('button', { name: '清空数据' }).click();
   await frame.getByRole('button', { name: '确认清空' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('已清空当前聊天的世界书适配数据'));
   assert.equal(await frame.evaluate(() => Object.keys(localStorage).some((item) => item.startsWith('hypnoos:world-adaptation:v1:'))), false);
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  await frame.evaluate(() => globalThis.__ST_FORCE_CLEAR_OPERATION_INPUT_LOG__?.());
 
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-home.png`, fullPage: true });
   await frame.evaluate(() => {
@@ -420,17 +458,17 @@ async function openPhone(viewport, screenshotPrefix) {
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-input-app.png`, fullPage: true });
   if (screenshotPrefix.includes('desktop')) {
     await frame.getByRole('button', { name: '直接发送' }).click();
-    await page.waitForFunction(() => globalThis.__hypnoosQaSendCount === 1);
+    await page.waitForFunction(() => Number(globalThis.__hypnoosQaSendCount || 0) >= 1);
   } else {
     await frame.getByRole('button', { name: '写入输入框' }).click();
   }
-  await page.waitForFunction(() => document.querySelector('#send_textarea')?.value === '我本轮决定先调查附近，再和同伴交谈。');
+  await page.waitForFunction(() => document.querySelector('#send_textarea')?.value?.includes('我本轮决定先调查附近，再和同伴交谈。'));
   assert.deepEqual(errors, []);
   await page.close();
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.5-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.5-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.6-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.6-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

@@ -7,7 +7,7 @@ import { deflateRawSync } from 'node:zlib';
 const root = new URL('../', import.meta.url);
 const out = new URL('../dist/HypnoOS3.0/', import.meta.url);
 const outPath = fileURLToPath(out);
-const zipPath = new URL('../dist/HypnoOS3.0-v0.7.5.zip', import.meta.url);
+const zipPath = new URL('../dist/HypnoOS3.0-v0.7.6.zip', import.meta.url);
 await rm(new URL('../dist/', import.meta.url), { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 for (const path of ['manifest.json', 'capability-contract.json', 'index.js', 'style.css', 'README.md', 'NOTICE.md', 'LICENSE-PENDING.md', 'docs', 'src', 'ui', 'public']) {
