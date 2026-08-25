@@ -17,17 +17,24 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '99f45e074ab9126e22c2e79de59392e2134980d3b31f56dfabed3b707dcb757a', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === 'fc16e0376cdb7f61f80c48c207f57ee2ad98b07f70c31dd7339620c2ebcf14c9', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
 expect(uiText.includes('玩家本轮输入'), '本轮输入应用没有采用玩家输入合同');
 expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
 expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺少信息应用入口');
+expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
+expect(uiText.includes('data-information-action="refresh-format"') && uiText.includes('st-information-feedback'), '信息应用缺少按键反馈');
+expect(uiText.includes('data-profile-gender-correction'), '人物档案缺少手动性别修正选择框');
+expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');
+expect(uiText.includes('readAdaptiveAppData') && uiText.includes('当前世界书'), '世界类应用缺少世界书优先适配层');
+expect(uiText.includes('encounterBuiltInPackagesCache = [];') && uiText.includes('encounterResetLibraryFor070Once'), '邂逅内置角色包没有清空');
 for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {
   expect(uiText.includes(label), `文生文连接器缺少预设字段：${label}`);
 }
 expect(uiText.includes('data-connector-load-models="text"'), '自定义直连缺少加载模型按钮');
+expect(!uiText.includes('酒馆后端代理'), '模型插头仍显示酒馆后端代理');
 expect(uiText.includes('data-connector-field="model"') && uiText.includes('placeholder="请先加载并选择模型" readonly'), '模型名必须由列表只读回填');
 expect(uiText.includes('return base + "/models"'), '自定义直连缺少模型列表端点');
 expect(uiText.includes('return base + "/chat/completions"'), '自定义直连缺少生成端点');

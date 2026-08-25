@@ -46,7 +46,7 @@ async function openPhone(viewport, screenshotPrefix) {
         { mes: '回复', is_user: false, name: 'QA角色', variables: { stat_data: { 系统: { MC能量: 66, MC能量上限: 80, 星光点: 12, 持有零花钱: 3456 }, 角色: { 测试角色: { 好感度: 12 } } } } },
       ],
       getWorldInfoNames() { return ['qa-book']; },
-      loadWorldInfo(name) { return { entries: { 1: { uid: 1, comment: 'QA地点', content: `${name}:测试地点` } } }; },
+      loadWorldInfo(name) { return { entries: { 1: { uid: 1, comment: '[地点] QA测试地点', content: `${name}: 测试地点，包含图书馆和车站。` }, 2: { uid: 2, comment: '[角色] QA男性档案', content: '<QA男性人设>\n姓名: QA男性\n性别: 男\n职业: 教师' } } }; },
       convertCharacterBook(value) { return value; },
       saveMetadataDebounced() {},
       setExtensionPrompt() {},
@@ -130,7 +130,7 @@ async function openPhone(viewport, screenshotPrefix) {
     return { books, worldbook, mvu };
   });
   assert.equal(bridgeSnapshot.books.primary, 'qa-book');
-  assert.equal(bridgeSnapshot.worldbook.entries['1'].comment, 'QA地点');
+  assert.equal(bridgeSnapshot.worldbook.entries['1'].comment, '[地点] QA测试地点');
   assert.equal(bridgeSnapshot.mvu.stat_data.系统.MC能量, 66);
 
   await frame.locator('[aria-label="打开信息"]').click();
@@ -142,9 +142,46 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.match(informationText, /变量格式/);
   assert.match(informationText, /桌宠人物/);
   assert.match(informationText, /变量楼层/);
+  await frame.getByRole('button', { name: '刷新检查' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('变量格式检查已刷新'));
+  assert.match(await frame.locator('.st-information-feedback').innerText(), /已刷新/);
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-information-app.png`, fullPage: true });
   await frame.locator('.st-information-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  if (screenshotPrefix.includes('desktop')) {
+    await frame.locator('[aria-label="打开男性档案"]').click();
+    await frame.waitForSelector('.st-profile-app');
+    await frame.waitForFunction(() => document.querySelector('.st-profile-app')?.innerText?.includes('QA男性'));
+    await frame.locator('[data-profile-desk-role="QA男性"]').click();
+    const genderSelect = frame.locator('[data-profile-gender-correction]');
+    assert.equal(await genderSelect.inputValue(), 'male');
+    await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-male-profile.png`, fullPage: true });
+    await genderSelect.selectOption('female');
+    await frame.waitForFunction(() => document.querySelector('.st-profile-app')?.getAttribute('aria-label') === '男性档案' || document.querySelector('.st-profile-app')?.innerText?.includes('女性档案'));
+    assert.equal(await frame.locator('[data-profile-gender-correction]').inputValue(), 'female');
+    await frame.locator('.st-profile-app [data-lite-action="back"]').click();
+    await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+    await frame.locator('[aria-label="打开头像库"]').click();
+    await frame.waitForSelector('.st-avatar-library-app');
+    await frame.locator('[data-avatar-files]').setInputFiles({ name: 'qa-avatar.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
+    await frame.waitForFunction(() => document.querySelector('.st-avatar-library-app')?.innerText?.includes('已导入 1 张'));
+    await frame.getByRole('button', { name: '用于所选角色' }).click();
+    await frame.waitForFunction(() => document.querySelector('.st-avatar-library-app')?.innerText?.includes('已将头像应用到'));
+    await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-avatar-library.png`, fullPage: true });
+    await frame.locator('.st-avatar-library-app [data-lite-action="back"]').click();
+    await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+    await frame.locator('[data-home-app-id="encounter"]').click();
+    await frame.waitForSelector('.st-encounter-app');
+    await frame.waitForFunction(() => /还没有(?:角色包|可用角色)/.test(document.querySelector('.st-encounter-app')?.innerText || ''));
+    const encounterText = await frame.locator('.st-encounter-app').innerText();
+    assert.match(encounterText, /还没有(?:角色包|可用角色)/);
+    assert.doesNotMatch(encounterText, /白枢暗子|小乔的p5r角色包|中村樱/);
+    await frame.locator('.st-encounter-app [data-lite-action="back"]').click();
+    await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  }
 
   if (screenshotPrefix.includes('desktop')) {
     const before = await page.evaluate(() => document.querySelector('#hypnoos3-extension-floating-phone-host').shadowRoot.querySelector('.panel').getBoundingClientRect().toJSON());
@@ -173,13 +210,16 @@ async function openPhone(viewport, screenshotPrefix) {
   }
 
   await frame.locator('[aria-label="打开设置"]').click();
+  await frame.locator('[data-settings-region]').selectOption('japan');
+  await frame.getByRole('button', { name: '切换通用模板' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('通用适配模板已切换为日本版'));
   await frame.getByRole('button', { name: '模型插头' }).click();
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '设置应用仍叠加旧 React 顶栏');
   const settingsText = await frame.locator('.st-settings-app').innerText();
-  for (const label of ['API 预设', '预设名称', '酒馆后端代理', '自定义直连', '端点（基础 URL）', 'API 密钥', '模型名', '加载模型', '最大回复长度', '附加主体参数', '排除主体参数', '附加请求标头', '保存当前预设']) assert.match(settingsText, new RegExp(label));
+  for (const label of ['API 预设', '预设名称', '自定义直连', '端点（基础 URL）', 'API 密钥', '模型名', '加载模型', '最大回复长度', '附加主体参数', '排除主体参数', '附加请求标头', '保存当前预设']) assert.match(settingsText, new RegExp(label));
+  assert.doesNotMatch(settingsText, /酒馆后端代理/);
   const modelInput = frame.locator('[data-connector-field="model"]');
   assert.equal(await modelInput.getAttribute('readonly'), '', '模型名仍允许手动输入');
-  await frame.locator('[data-connector-field="mode"][value="direct"]').check({ force: true });
   await frame.locator('[data-connector-field="enabled"]').check();
   await frame.locator('[data-connector-field="endpoint"]').fill('https://qa-openai.example/v1');
   await frame.locator('[data-connector-secret="text"]').fill('qa-secret-not-logged');
@@ -204,6 +244,19 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal(directRequests[1]?.headers?.authorization, 'Bearer qa-secret-not-logged');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-model-settings.png`, fullPage: true });
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开地图"]').click();
+  await frame.waitForSelector('.st-adaptive-world-app');
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /当前世界书/);
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /QA测试地点/);
+  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  await frame.locator('[aria-label="打开监控"]').click();
+  await frame.waitForSelector('.st-adaptive-world-app');
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /日本通用模板/);
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-adaptive-monitor.png`, fullPage: true });
+  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-home.png`, fullPage: true });
@@ -240,7 +293,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.6.5-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.6.5-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.0-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.0-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();
