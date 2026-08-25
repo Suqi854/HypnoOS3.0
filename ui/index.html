@@ -2160,7 +2160,7 @@ html.st-hypnoos-booting.st-hypnoos-boot-failed .st-hypnoos-phone-preboot::after{
     window.__ST_SET_CHEAT_MODE_STATUS_REMINDER__ = (payload) => {
       const isTarget = (entry) => {
         const item = operationEntryPayload(entry);
-        return item?.["来源"] === "设置" && String(item?.["操作"] || "").trim() === "作弊模式进行中";
+        return item?.["来源"] === "设置" && /^作弊模式(?:进行中|启动|关闭)$/.test(String(item?.["操作"] || "").trim());
       };
       if (!payload) {
         const before = window.__ST_OPERATION_INPUT_LOG__.length;
@@ -3994,6 +3994,7 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 
 	  function appendAppOperation(payload) {
 	    if (!requireWritablePhoneFloor()) return false;
+	    payload = settingsApplyCheatOperationPayload(payload);
 	    const append = window.__ST_APPEND_OPERATION_TO_INPUT__;
 	    if (typeof append === "function") {
 	      return append(payload);
@@ -9381,6 +9382,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function reactCurrentVipTier(system = getSystemState()) {
+    if (settingsCheatModeActive()) return "VIP6";
     const raw = system?.["催眠APP订阅等级"] ?? system?.["_催眠APP订阅等级"] ?? system?.["VIP等级"] ?? system?.["订阅等级"] ?? system?.["订阅"] ?? system?.["催眠APP订阅"] ?? "";
     const match = String(raw || "").toUpperCase().replace(/\s+/g, "").match(/VIP([1-6])/);
     return match ? "VIP" + match[1] : "";
@@ -9470,7 +9472,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const data = typeof encounterCurrentMvuData === "function" ? encounterCurrentMvuData() : null;
     if (!data) return { ok: false, message: "MVU变量接口未就绪，无法直接购买。" };
     data.stat["系统"] = data.stat["系统"] && typeof data.stat["系统"] === "object" && !Array.isArray(data.stat["系统"]) ? data.stat["系统"] : {};
-    const result = mutator(data.stat["系统"], data.stat);
+    const restoreCheatResources = settingsPrepareCheatMutation(data.stat["系统"]);
+    let result;
+    try { result = mutator(data.stat["系统"], data.stat); }
+    finally { restoreCheatResources(); }
     if (!result?.ok) return result || { ok: false, message: "购买失败。" };
     const written = typeof encounterReplaceMvuData === "function"
       ? await encounterReplaceMvuData(data)
@@ -10232,7 +10237,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const data = typeof encounterCurrentMvuData === "function" ? encounterCurrentMvuData() : null;
     if (!data) return { ok: false, message: "MVU变量接口未就绪，无法直接领取奖励。" };
     data.stat["系统"] = data.stat["系统"] && typeof data.stat["系统"] === "object" && !Array.isArray(data.stat["系统"]) ? data.stat["系统"] : {};
-    const result = mutator(data.stat["系统"], data.stat);
+    const restoreCheatResources = settingsPrepareCheatMutation(data.stat["系统"]);
+    let result;
+    try { result = mutator(data.stat["系统"], data.stat); }
+    finally { restoreCheatResources(); }
     if (!result?.ok) return result || { ok: false, message: "奖励领取失败。" };
     syncGhostEmbodiedStats(data.stat["系统"], data.stat);
     const written = typeof encounterReplaceMvuData === "function"
@@ -11518,6 +11526,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisLiteFeatureCost(feature, draft) {
+    if (settingsCheatModeActive()) return 0;
     if (hypnosisFeatureIsPregnancyConfirmation(feature)) return 0;
     if (!feature || Number(feature.costValue || 0) <= 0) return 0;
     const base = feature.id === "vip1_temp_sensitivity" ? 2 : Math.max(0, Math.floor(Number(feature.costValue || 0) || 0));
@@ -11529,6 +11538,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisLiteFeatureStarlightCost(feature, draft) {
+    if (settingsCheatModeActive()) return 0;
     if (!hypnosisFeatureIsPregnancyConfirmation(feature)) return 0;
     return Math.max(0, Math.floor(Number(feature?.costValue || 0) || 0) * hypnosisFeaturePersonCount(feature, draft));
   }
@@ -11751,10 +11761,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const energyPrice = qty * 10;
     const maxEnergyPrice = qty * 100;
     return '<section class="st-lite-card st-graph-paper st-hypnosis-form">' +
-      '<div class="st-graph-head"><strong>快速补给</strong><span>资金 ' + escapeHtml("¥" + money.toLocaleString()) + ' / 星光点 ' + starlight.toLocaleString() + '</span></div>' +
+      '<div class="st-graph-head"><strong>快速补给</strong><span>资金 ' + escapeHtml(settingsCheatModeActive() ? "∞" : "¥" + money.toLocaleString()) + ' / 星光点 ' + (settingsCheatModeActive() ? "∞" : starlight.toLocaleString()) + '</span></div>' +
       '<section class="st-hypnosis-summary">' +
-        '<span><strong>' + escapeHtml(String(system["MC能量"] ?? 0)) + '</strong>MC能量</span>' +
-        '<span><strong>' + escapeHtml(String(system["MC能量上限"] ?? 0)) + '</strong>上限</span>' +
+        '<span><strong>' + escapeHtml(settingsCheatModeActive() ? "∞" : String(system["MC能量"] ?? 0)) + '</strong>MC能量</span>' +
+        '<span><strong>' + escapeHtml(settingsCheatModeActive() ? "∞" : String(system["MC能量上限"] ?? 0)) + '</strong>上限</span>' +
         '<span><strong>' + escapeHtml(String(suspicion) + "%") + '</strong>可疑度</span>' +
       '</section>' +
       '<div class="st-hypnosis-form-grid">' +
@@ -16959,7 +16969,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   function getSystemState() {
     const variables = activeStatDataReadScope !== undefined ? activeStatDataReadScope : getLatestStatDataSync();
     const system = variables?.["系统"];
-    return system && typeof system === "object" && !Array.isArray(system) ? system : {};
+    const value = system && typeof system === "object" && !Array.isArray(system) ? system : {};
+    return settingsCheatSystemView(value);
   }
 
   function storyTimeOnly(value, fallback = "12:00") {
@@ -17058,6 +17069,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisSubscriptionText(system) {
+    if (settingsCheatModeActive()) return "VIP6";
     const raw = system?.["催眠APP订阅等级"] ?? system?.["_催眠APP订阅等级"] ?? system?.["VIP等级"] ?? system?.["订阅等级"] ?? system?.["订阅"] ?? system?.["催眠APP订阅"] ?? system?.["MC订阅"] ?? system?.["买断"] ?? "";
     const text = String(raw || "").trim();
     const match = text.toUpperCase().replace(/\s+/g, "").match(/VIP([1-6])/);
@@ -17066,6 +17078,12 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function hypnosisIslandHtml(system) {
+    if (settingsCheatModeActive()) {
+      return '<div class="st-hypnosis-island-center">' +
+        '<div class="st-hypnosis-island-row"><strong>MC能量 ∞ / ∞</strong><small>VIP6</small></div>' +
+        '<span class="st-app-island-progress" style="--pct:100%"><i></i></span>' +
+      '</div>';
+    }
     const energy = Number(system?.["MC能量"] ?? 0) || 0;
     const maxEnergy = Number(system?.["MC能量上限"] ?? (energy || 1)) || 1;
     const safeMax = Math.max(1, maxEnergy);
@@ -25621,6 +25639,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function encounterVipRankFromSystem(system) {
+    if (settingsCheatModeActive()) return 6;
     const tier = String(system?.["催眠APP订阅等级"] || system?.["VIP等级"] || "").trim().toUpperCase();
     const match = tier.match(/VIPs*([1-6])/);
     return match ? Number(match[1]) : 0;
@@ -25780,8 +25799,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     return {
       vip5: encounterVip5FromSystem(system),
       vip6: encounterVip6FromSystem(system),
-      money: Number.isFinite(money) ? Math.max(0, Math.floor(money)) : 0,
-      starlight: Number.isFinite(starlight) ? Math.max(0, Math.floor(starlight)) : 0,
+      money: settingsCheatModeActive() ? SETTINGS_CHEAT_INFINITY : Number.isFinite(money) ? Math.max(0, Math.floor(money)) : 0,
+      starlight: settingsCheatModeActive() ? SETTINGS_CHEAT_INFINITY : Number.isFinite(starlight) ? Math.max(0, Math.floor(starlight)) : 0,
       starlightVoucher: encounterInventoryItemCount(ENCOUNTER_SHOP_STARLIGHT_VOUCHER, stat),
       ruleCoupon: encounterInventoryItemCount(LOCATION_RULE_RADAR_ITEM, stat),
       timetableCoupon: encounterInventoryItemCount(TIMETABLE_MOD_COUPON_ITEM, stat),
@@ -25807,7 +25826,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     const money = Math.max(0, Math.floor(Number(data.stat["系统"]["持有零花钱"] ?? 0) || 0));
     const costMoney = count * ENCOUNTER_SHOP_MONEY_PER_STARLIGHT;
-    if (money < costMoney) {
+    if (!settingsCheatModeActive() && money < costMoney) {
       encounterSetStatus(page, "零花钱不足，兑换比例为10000:1。");
       return;
     }
@@ -25819,8 +25838,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       encounterSetStatus(page, "兑换券扣除失败。");
       return;
     }
-    data.stat["系统"]["持有零花钱"] = money - costMoney;
-    data.stat["系统"]["星光点"] = Math.max(0, Math.floor(Number(data.stat["系统"]["星光点"] ?? 0) || 0)) + count;
+    if (!settingsCheatModeActive()) {
+      data.stat["系统"]["持有零花钱"] = money - costMoney;
+      data.stat["系统"]["星光点"] = Math.max(0, Math.floor(Number(data.stat["系统"]["星光点"] ?? 0) || 0)) + count;
+    }
     await encounterReplaceMvuData(data);
     await appendAppOperation({
       来源: "邂逅",
@@ -25857,11 +25878,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     const cost = count * ENCOUNTER_SHOP_RULE_COUPON_PRICE;
     const current = Math.max(0, Math.floor(Number(data.stat["系统"]["星光点"] ?? 0) || 0));
-    if (current < cost) {
+    if (!settingsCheatModeActive() && current < cost) {
       encounterSetStatus(page, "星光点不足，常识修改雷达每个100星光点。");
       return;
     }
-    data.stat["系统"]["星光点"] = current - cost;
+    if (!settingsCheatModeActive()) data.stat["系统"]["星光点"] = current - cost;
     encounterAddInventoryItem(data.stat, LOCATION_RULE_RADAR_ITEM, count, "催眠APP出售给VIP6用户的一次性高级广范围雷达；在地图的地点规则抽屉中写入一条永久规则时消耗1个。");
     await encounterReplaceMvuData(data);
     await appendAppOperation({
@@ -25897,11 +25918,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     const cost = count * TIMETABLE_MOD_COUPON_PRICE;
     const current = Math.max(0, Math.floor(Number(data.stat["系统"]["星光点"] ?? 0) || 0));
-    if (current < cost) {
+    if (!settingsCheatModeActive() && current < cost) {
       encounterSetStatus(page, "星光点不足，课程表魔改券每张" + TIMETABLE_MOD_COUPON_PRICE + "星光点。");
       return;
     }
-    data.stat["系统"]["星光点"] = current - cost;
+    if (!settingsCheatModeActive()) data.stat["系统"]["星光点"] = current - cost;
     encounterAddInventoryItemDetailed(data.stat, TIMETABLE_MOD_COUPON_ITEM, count, "用于在课程表APP中修改当天剩余课程中的一节。前端保存单格修改时扣券，并同步课程表只读日程字段。");
     await encounterReplaceMvuData(data);
     await appendAppOperation({
@@ -25947,11 +25968,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       return;
     }
     const current = Math.max(0, Math.floor(Number(data.stat["系统"]["星光点"] ?? 0) || 0));
-    if (current < SPECIAL_LOCATION_PASS_PRICE) {
+    if (!settingsCheatModeActive() && current < SPECIAL_LOCATION_PASS_PRICE) {
       encounterSetStatus(page, "星光点不足，准入证需要" + SPECIAL_LOCATION_PASS_PRICE + "点。");
       return;
     }
-    data.stat["系统"]["星光点"] = current - SPECIAL_LOCATION_PASS_PRICE;
+    if (!settingsCheatModeActive()) data.stat["系统"]["星光点"] = current - SPECIAL_LOCATION_PASS_PRICE;
     encounterAddInventoryItemDetailed(data.stat, itemName, 1, "催眠APP官方援助渠道提供的" + (location?.label || "特殊地点") + "进入资格；不代表瞬移，也不无视门禁时间。");
     await encounterReplaceMvuData(data);
     await appendAppOperation({
@@ -26999,8 +27020,8 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '<h3>邂逅商店</h3>' +
         '<p>APP开放的特权商店。VIP5可进入并使用“' + escapeHtml(ENCOUNTER_SHOP_STARLIGHT_VOUCHER) + '”兑换星光点，也可购买特殊地点准入证；常识修改雷达和课程表魔改券仅限VIP6。</p>' +
         '<div class="st-encounter-shop-meta">' +
-          '<span><strong>' + state.money.toLocaleString() + '</strong>零花钱</span>' +
-          '<span><strong>' + state.starlight + '</strong>星光点</span>' +
+          '<span><strong>' + (settingsCheatModeActive() ? "∞" : state.money.toLocaleString()) + '</strong>零花钱</span>' +
+          '<span><strong>' + (settingsCheatModeActive() ? "∞" : state.starlight) + '</strong>星光点</span>' +
           '<span><strong>' + state.starlightVoucher + '</strong>兑换券</span>' +
           '<span><strong>' + state.ruleCoupon + '</strong>常识修改雷达</span>' +
           '<span><strong>' + state.timetableCoupon + '</strong>课表券</span>' +
@@ -27884,6 +27905,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 	  }
 
   async function encounterSetStarlight(value) {
+    if (settingsCheatModeActive()) return true;
     const data = encounterCurrentMvuData();
     if (!data) return false;
     data.stat["系统"] = data.stat["系统"] && typeof data.stat["系统"] === "object" && !Array.isArray(data.stat["系统"]) ? data.stat["系统"] : {};
@@ -28456,6 +28478,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
 
 	  async function encounterDeductStarlight(price) {
     const cost = Math.max(0, Math.floor(Number(price) || 0));
+    if (settingsCheatModeActive()) return { ok: true, previous: encounterCurrentStarlight(), current: encounterCurrentStarlight(), cheated: true };
     const data = encounterCurrentMvuData();
     if (!data) return { ok: cost === 0, previous: encounterCurrentStarlight(), reason: "MVU变量接口未就绪。" };
     data.stat["系统"] = data.stat["系统"] && typeof data.stat["系统"] === "object" && !Array.isArray(data.stat["系统"]) ? data.stat["系统"] : {};
@@ -38926,42 +38949,47 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     } catch { return false; }
   }
 
-  function settingsCheatModePayload(action) {
-    const enabled = action !== "作弊模式关闭";
-    return {
-      来源: "设置",
-      操作: action,
-      暂存摘要: action,
-      世界书切换: enabled ? "已关闭《难度加大》，已启用《作弊模式》。" : "已关闭《作弊模式》，已重新启用《难度加大》。",
-      AI执行规范: enabled
-        ? "作弊模式由设置页前端确认开启：好感和服从增长可以更快，{{user}}明确想要警戒度和可疑度增长时也可更快增长；但不能影响角色根本人设、剧情进展、线路阶段、前端按钮条件或把正常角色变成白给角色。"
-        : "作弊模式由设置页前端确认关闭：从本楼层起恢复普通难度，继续读取《难度加大》规则；不要再按作弊模式加速结算。",
-      不可删除: true,
-      locked: true,
-      forceLocked: true
+  const SETTINGS_CHEAT_INFINITY = Number.MAX_SAFE_INTEGER;
+  const SETTINGS_CHEAT_RESOURCE_KEYS = ["持有零花钱", "零花钱", "星光点", "MC能量", "_MC能量", "MC能量上限", "_MC能量上限"];
+  const SETTINGS_CHEAT_VIP_KEYS = ["催眠APP订阅等级", "_催眠APP订阅等级", "VIP等级", "订阅等级", "订阅", "催眠APP订阅"];
+
+  function settingsCheatSystemView(system) {
+    if (!settingsCheatModeActive()) return system;
+    const view = { ...system };
+    for (const key of SETTINGS_CHEAT_RESOURCE_KEYS) view[key] = SETTINGS_CHEAT_INFINITY;
+    for (const key of SETTINGS_CHEAT_VIP_KEYS) view[key] = "VIP6";
+    return view;
+  }
+
+  function settingsPrepareCheatMutation(system) {
+    if (!settingsCheatModeActive() || !system || typeof system !== "object") return () => {};
+    const keys = [...SETTINGS_CHEAT_RESOURCE_KEYS, ...SETTINGS_CHEAT_VIP_KEYS];
+    const snapshot = new Map(keys.map((key) => [key, { exists: Object.prototype.hasOwnProperty.call(system, key), value: system[key] }]));
+    for (const key of SETTINGS_CHEAT_RESOURCE_KEYS) system[key] = SETTINGS_CHEAT_INFINITY;
+    for (const key of SETTINGS_CHEAT_VIP_KEYS) system[key] = "VIP6";
+    return () => {
+      for (const [key, saved] of snapshot) {
+        if (saved.exists) system[key] = saved.value;
+        else delete system[key];
+      }
     };
   }
 
-  function settingsCheatModeReminder() {
-    const setter = window.__ST_SET_CHEAT_MODE_STATUS_REMINDER__;
-    if (typeof setter !== "function") return false;
-    if (!settingsCheatModeActive()) return setter(null);
-    const hasPendingToggleAction = (window.__ST_GET_PENDING_OPERATION_INPUT_LOG__?.() || []).some((entry) => {
-      const item = entry?.payload || entry;
-      return item?.["来源"] === "设置" && /^(作弊模式启动|作弊模式关闭)$/.test(String(item?.["操作"] || ""));
-    });
-    if (hasPendingToggleAction) return false;
-    return setter(settingsCheatModePayload("作弊模式进行中"));
-  }
-
-  async function settingsSetCheatModeWorldbooks(active) {
-    const fallbackName = CARD_WORLD_BOOK_NAME;
-    const hard = await encounterSetWorldbookCommentsEnabled(fallbackName, ["难度加大"], !active, { create: false });
-    const cheat = await encounterSetWorldbookCommentsEnabled(fallbackName, ["作弊模式"], active, { create: false });
-    const warnings = [];
-    if (!hard?.ok || hard?.missing) warnings.push(hard?.reason || "没有找到《难度加大》世界书条目");
-    if (!cheat?.ok || cheat?.missing) warnings.push(cheat?.reason || "没有找到《作弊模式》世界书条目");
-    return { ok: true, hard, cheat, warnings };
+  function settingsApplyCheatOperationPayload(payload) {
+    if (!settingsCheatModeActive() || !payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+    const next = { ...payload };
+    const zeroFields = ["MC能量消耗", "星光点消耗", "消耗星光点", "消耗零花钱", "累计消耗星光点", "累计消耗零花钱", "买断价格"];
+    for (const key of zeroFields) if (Object.prototype.hasOwnProperty.call(next, key)) next[key] = "0（作弊模式无限资源，不扣除）";
+    for (const key of Object.keys(next)) {
+      if (/^前端写入后(?:持有零花钱|零花钱|星光点|MC能量|MC能量上限|催眠APP订阅等级)$/.test(key)) delete next[key];
+    }
+    for (const key of ["变量写入路径", "前端写入路径", "AI可写路径"]) {
+      if (!Array.isArray(next[key])) continue;
+      next[key] = next[key].filter((path) => !/^\/系统\/(?:持有零花钱|零花钱|星光点|MC能量|_MC能量|MC能量上限|_MC能量上限|催眠APP订阅等级|_催眠APP订阅等级|VIP等级)$/.test(String(path || "")));
+    }
+    next["作弊模式资源规则"] = "催眠手机内全部VIP已解锁，零花钱、星光点和MC能量均为无限；本操作不得读取、扣除、增加或覆盖这些原始变量，也不得修改任何世界书。";
+    next["AI执行规范"] = "作弊模式资源规则优先：不得修改零花钱、星光点、MC能量、MC能量上限或VIP变量；不得修改、启停或新增世界书。" + (next["AI执行规范"] ? "其余非资源规则继续执行：" + next["AI执行规范"] : "");
+    return next;
   }
 
   function settingsTextPrompt(page, options = {}) {
@@ -39039,27 +39067,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       renderSettingsPage(page);
       return;
     }
-    let result;
-    try {
-      result = await settingsSetCheatModeWorldbooks(active);
-    } catch (worldbookError) {
-      result = { ok: true, warnings: ["世界书兼容切换失败：" + String(worldbookError?.message || worldbookError || "未知错误")] };
-    }
-    const warnings = [...(result?.warnings || [])];
-    try {
-      if (active) {
-        appendAppOperation(settingsCheatModePayload("作弊模式启动"));
-        settingsCheatModeReminder();
-      } else {
-        window.__ST_SET_CHEAT_MODE_STATUS_REMINDER__?.(null);
-        appendAppOperation(settingsCheatModePayload("作弊模式关闭"));
-      }
-    } catch (operationError) {
-      warnings.push("暂存提醒写入失败：" + String(operationError?.message || operationError || "未知错误"));
-    }
-    const warningText = warnings.length ? "；兼容提示：" + warnings.join("；") : "";
-    page.dataset.settingsStatus = (active ? "作弊模式已开启。" : "作弊模式已关闭。") + warningText;
-    diagnosticLog("info", active ? "cheat.enabled" : "cheat.disabled", { worldbookWarnings: warnings.length });
+    try { window.__ST_SET_CHEAT_MODE_STATUS_REMINDER__?.(null); } catch {}
+    page.dataset.settingsStatus = active
+      ? "作弊模式已开启：全部VIP已解锁，零花钱、星光点和MC能量均为无限。"
+      : "作弊模式已关闭：已恢复读取原有VIP与资源变量。";
+    diagnosticLog("info", active ? "cheat.enabled" : "cheat.disabled", { scope: "phone-only", worldbookWrites: 0, variableWrites: 0 });
     renderSettingsPage(page);
   }
 
@@ -39114,7 +39126,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const logs = readDiagnosticLogs();
     return '<section class="st-settings-panel st-settings-log-panel">' +
       '<h3>运行日志</h3><p>用于排查世界书读取、模型调用、档案导入及运行异常。日志仅保存在当前浏览器，最多保留 ' + ST_DIAGNOSTIC_LOG_LIMIT + ' 条；密钥、令牌和敏感请求头会自动隐藏，提示词与世界书正文不会写入。</p>' +
-      '<div class="st-settings-log-meta"><span>当前 ' + logs.length + ' 条</span><span>HypnoOS 0.7.6</span></div>' +
+      '<div class="st-settings-log-meta"><span>当前 ' + logs.length + ' 条</span><span>HypnoOS 0.7.7</span></div>' +
       '<div class="st-settings-actions is-three"><button type="button" class="st-settings-button" data-settings-log-action="copy">复制日志</button><button type="button" class="st-settings-button" data-settings-log-action="download">下载日志</button><button type="button" class="st-settings-button danger" data-settings-log-action="clear" ' + (!logs.length ? "disabled" : "") + '>清空日志</button></div>' +
       '<pre class="st-settings-log-view" data-settings-log-view tabindex="0">' + escapeHtml(diagnosticLogText()) + '</pre>' +
       '</section>';
@@ -39800,7 +39812,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '</section>' +
         '<section class="st-settings-panel st-settings-cheat-panel ' + (cheatActive ? "is-active" : "") + '">' +
           '<h3>作弊模式</h3>' +
-          '<p>当前状态：<strong>' + (cheatActive ? "已开启" : "未开启") + '</strong>。开启后会关闭《难度加大》并启用《作弊模式》；关闭则反向切回。它只加快好感/服从等成长，不应破坏人设、剧情线或前端条件。</p>' +
+          '<p>当前状态：<strong>' + (cheatActive ? "已开启" : "未开启") + '</strong>。开启后解锁催眠手机全部VIP，并将零花钱、星光点和MC能量显示及使用为无限；不会修改世界书或玩家原变量。</p>' +
           (!cheatActive ? '<label><span>开启密钥</span><input class="st-settings-code st-settings-cheat-key" type="password" data-settings-cheat-key autocomplete="off" inputmode="numeric" placeholder="请输入密钥"></label>' : '') +
           '<div class="st-settings-actions is-single">' +
             '<button type="button" class="st-settings-button ' + (cheatActive ? "danger" : "primary") + '" data-settings-action="' + (cheatActive ? "cheat-off" : "cheat-on") + '"' + (cheatActive ? ' data-settings-cheat-indicator title="点击关闭作弊模式"' : '') + '>' + (cheatActive ? "作弊模式开启中" : "开启作弊模式") + '</button>' +
@@ -41227,6 +41239,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   function informationValue(value) {
+    if (settingsCheatModeActive()) return "∞";
     if (value === undefined || value === null || value === "") return "--";
     const number = Number(value);
     return Number.isFinite(number) ? new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(number) : String(value);
@@ -42683,7 +42696,6 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     updateOpenPersonProfilePage();
     if (latest) syncMonitorDispatchCompletionReminder();
     if (latest) {
-      settingsCheatModeReminder();
       void repairPendingWorkCurrentLayerVariables().catch((error) => console.warn("[HypnoOS] 修复打工当层变量失败", error));
       syncWorkBuffStatusReminder();
       syncExpiredTemporaryHypnosisReminder();

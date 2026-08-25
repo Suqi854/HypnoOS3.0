@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '45898c8b40a9a7a6fbc6667e8f0a93ab9d5f08cfbe715bba9a135feddf7b2000', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === 'ec6470ab7dc984eb5d7844de097fd83d2b8911cc66147cf782bd76fd1fbc0bf0', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -47,6 +47,9 @@ expect(uiText.includes('.st-settings-worldbook-option input:checked') && uiText.
 expect(uiText.includes("html: '<strong>档案</strong>'"), '男女档案顶部没有显示档案');
 expect(uiText.includes('const SETTINGS_CHEAT_UNLOCK_KEY = "666666"') && uiText.includes('data-settings-cheat-key'), '作弊模式缺少独立密钥门控');
 expect(uiText.includes('data-settings-cheat-indicator') && uiText.includes('作弊模式开启中') && uiText.includes('.st-settings-cheat-panel.is-active .st-settings-button.danger'), '作弊模式缺少红色开启状态条');
+expect(uiText.includes('settingsCheatSystemView') && uiText.includes('settingsPrepareCheatMutation') && uiText.includes('settingsApplyCheatOperationPayload'), '作弊模式缺少VIP/无限资源覆盖与原变量保护');
+expect(uiText.includes('MC能量 ∞ / ∞') && uiText.includes('全部VIP已解锁'), '作弊模式缺少无限资源或VIP6显示合同');
+expect(!uiText.includes('settingsSetCheatModeWorldbooks') && !uiText.includes('settingsCheatModePayload') && !uiText.includes('settingsCheatModeReminder'), '作弊模式仍与世界书或剧情暂存耦合');
 expect(!uiText.includes('const confirmed = await encounterConfirm(page, {\n      title: active ? "开启作弊模式"'), '正确密钥后仍有额外确认阻断作弊模式');
 expect(!uiText.includes('openAdaptiveWorldApp(calendarTile, "calendar")'), '日历仍被统一卡片页覆盖');
 expect(uiText.includes('encounterBuiltInPackagesCache = [];') && uiText.includes('encounterResetLibraryFor070Once'), '邂逅内置角色包没有清空');

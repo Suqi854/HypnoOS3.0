@@ -426,6 +426,46 @@ async function openPhone(viewport, screenshotPrefix) {
   assert.equal((await cheatIndicator.innerText()).trim(), '作弊模式开启中');
   assert.match(await cheatIndicator.evaluate((node) => getComputedStyle(node).backgroundImage), /rgb\(185, 28, 28\)|rgb\(225, 29, 72\)/, '作弊模式开启状态条没有变红');
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-cheat-mode-active.png`, fullPage: true });
+  assert.deepEqual(await page.evaluate(() => {
+    const system = globalThis.SillyTavern.getContext().chat.at(-1).variables.stat_data.系统;
+    return { money: system.持有零花钱, starlight: system.星光点, energy: system.MC能量, vip: system.催眠APP订阅等级 || '' };
+  }), { money: 3456, starlight: 12, energy: 66, vip: '' }, '开启作弊模式修改了原始MVU资源或VIP变量');
+  await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  await frame.locator('[aria-label="打开信息"]').click();
+  await frame.waitForSelector('.st-information-app');
+  const cheatResourceValues = await frame.locator('.st-information-resource strong').allTextContents();
+  assert.deepEqual(cheatResourceValues, ['∞', '∞', '∞'], '信息应用没有把三项资源显示为无限');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-cheat-resources.png`, fullPage: true });
+  await frame.locator('.st-information-app [data-lite-action="back"]').click();
+  await frame.locator('[aria-label="打开催眠APP"]').click();
+  await frame.waitForSelector('.st-hypnosis-lite-app');
+  const cheatHypnosisText = await frame.locator('.st-hypnosis-lite-app').innerText();
+  assert.match(cheatHypnosisText, /MC能量\s*∞\s*\/\s*∞/);
+  assert.match(cheatHypnosisText, /VIP6/, '作弊模式没有解锁VIP6');
+  assert.doesNotMatch(cheatHypnosisText, /VIP6[^\n]*未解锁/, '作弊模式下VIP6仍显示未解锁');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-cheat-vip6.png`, fullPage: true });
+  await frame.locator('[data-hypnosis-delivery-mode="number"]').click();
+  await frame.locator('[data-hypnosis-start]').click();
+  await frame.waitForFunction(() => /(?:启动|追加)催眠已暂存/.test(document.querySelector('.st-hypnosis-lite-app')?.innerText || ''));
+  const cheatOperation = await frame.evaluate(() => {
+    const entry = (globalThis.__ST_GET_PENDING_OPERATION_INPUT_LOG__?.() || []).findLast((item) => (item?.payload || item)?.来源 === '催眠APP');
+    return entry?.payload || entry || null;
+  });
+  assert.equal(cheatOperation?.MC能量消耗, '0（作弊模式无限资源，不扣除）');
+  assert.match(cheatOperation?.作弊模式资源规则 || '', /不得.*修改任何世界书/);
+  assert.deepEqual(await page.evaluate(() => {
+    const system = globalThis.SillyTavern.getContext().chat.at(-1).variables.stat_data.系统;
+    return { money: system.持有零花钱, starlight: system.星光点, energy: system.MC能量 };
+  }), { money: 3456, starlight: 12, energy: 66 }, '作弊模式下实际使用催眠指令改写了原始资源');
+  await frame.locator('.st-hypnosis-lite-app [data-lite-action="back"]').click();
+  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.getByRole('button', { name: '作弊模式开启中' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('作弊模式已关闭'));
+  assert.deepEqual(await page.evaluate(() => {
+    const system = globalThis.SillyTavern.getContext().chat.at(-1).variables.stat_data.系统;
+    return { money: system.持有零花钱, starlight: system.星光点, energy: system.MC能量, vip: system.催眠APP订阅等级 || '' };
+  }), { money: 3456, starlight: 12, energy: 66, vip: '' }, '关闭作弊模式后原始MVU变量发生变化');
   await frame.getByRole('button', { name: '清空数据' }).click();
   await frame.getByRole('button', { name: '确认清空' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('已清空当前聊天的世界书适配数据'));
@@ -468,7 +508,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.6-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.6-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.7-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.7-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();
