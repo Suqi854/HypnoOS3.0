@@ -1,4 +1,5 @@
 import { toLegacyVariables } from './contracts.js';
+import { HYPNOSIS_RULES_API } from './hypnosis-rules.js';
 
 const BRIDGE_KEY = '__HYPNOOS3_CORE_BRIDGE__';
 const SINGLETON_KEY = '__HYPNOOS3_EXTENSION_FLOATING_SINGLETON__';
@@ -105,6 +106,11 @@ export class FloatingHost {
       getCharWorldbookNames() { return host.getCharacterWorldbookNames(); },
       getWorldbook(name) { return host.loadWorldbook(name); },
       generateRaw(options) { return host.generateRaw(options || {}); },
+      getHypnosisRules(version) { return HYPNOSIS_RULES_API.get(version); },
+      listHypnosisRuleVersions() { return HYPNOSIS_RULES_API.listVersions(); },
+      calculateHypnosisCost(commandId, parameters, version) { return HYPNOSIS_RULES_API.calculateCost(commandId, parameters, version); },
+      calculateHypnosisBatchCost(items, options, version) { return HYPNOSIS_RULES_API.calculateBatchCost(items, options, version); },
+      getHypnosisRulePrompt(version) { return HYPNOSIS_RULES_API.buildPrompt(version); },
       directSend(text) { return host.directSend(text); },
       destroy: () => this.destroy(),
     };

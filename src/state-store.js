@@ -1,4 +1,5 @@
 import { createDefaultState, fromLegacyVariables, makeOperation, normalizeState, toLegacyVariables } from './contracts.js';
+import { buildHypnosisRulePrompt } from './hypnosis-rules.js';
 import { getRegionPack } from './regions.js';
 import { clone } from './utils.js';
 
@@ -130,9 +131,9 @@ export class StateStore extends EventTarget {
     const state = this.#state;
     const roles = Object.values(state.roles).map((role) => ({ id: role.id, name: role.name, variables: role.variables }));
     return [
+      buildHypnosisRulePrompt(),
       '[HypnoOS3 当前状态；仅在剧情相关时使用]',
       JSON.stringify({ time: state.time, location: state.location.current, resources: state.resources, roles, tasks: state.tasks, activeEffects: state.hypnosis.activeEffects }),
-      this.buildOperationBlock(),
     ].filter(Boolean).join('\n');
   }
 

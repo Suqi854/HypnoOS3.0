@@ -19,9 +19,12 @@ const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
 expect(uiHash === 'd66b755375766d6bd222122ea9a80639b8ad67d66756baae42accfd2c4260a2e', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
+const hypnosisRulesSource = await readFile(new URL('src/hypnosis-rules.js', root), 'utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
 expect(uiText.includes('玩家本轮输入'), '本轮输入应用没有采用玩家输入合同');
+expect(hypnosisRulesSource.includes("const SCHEMA = 'HypnosisRules/v1'") && hypnosisRulesSource.includes('commands.length !== 36'), '独立核心缺少版本化的完整36项催眠规则合同');
+expect(hypnosisRulesSource.includes('buildHypnosisRulePrompt') && hypnosisRulesSource.includes('calculateHypnosisCost') && hypnosisRulesSource.includes('calculateHypnosisBatchCost'), '独立核心缺少催眠规则提示词或单项/批次计费接口');
 expect(uiText.includes('window.__ST_SEND_OPERATION_DIRECTLY__'), '本轮输入应用缺少直接发送合同');
 expect(uiText.includes('window.__ST_OPEN_INFORMATION_APP__'), '手机前端缺少信息应用入口');
 expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端缺少头像库应用入口');
@@ -92,6 +95,7 @@ expect(floatingHostSource.includes('directSend(text)'), '插件宿主缺少直�
 const hostAdapterSource = await readFile(new URL('src/host-adapter.js', root), 'utf8');
 expect(hostAdapterSource.includes('getCharacterWorldbookNames()'), '宿主适配器缺少当前角色世界书解析');
 expect(hostAdapterSource.includes("{ type: 'message', message_id: 'latest' }"), '宿主适配器没有读取最新楼层变量');
+expect(hostAdapterSource.includes('extractLatestUserOperationBlock') && hostAdapterSource.includes('buildLatestOperationGate'), '宿主适配器缺少最新真实用户操作闸门');
 
 async function files(dir) {
   const result = [];

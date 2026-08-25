@@ -4,6 +4,7 @@ import { HostAdapter } from './host-adapter.js';
 import { HypnoStorage } from './storage.js';
 import { StateStore } from './state-store.js';
 import { EXTENSION_ID, RUNTIME_KEY } from './constants.js';
+import { HYPNOSIS_RULES_API } from './hypnosis-rules.js';
 
 class Runtime {
   disposers = [];
@@ -43,6 +44,10 @@ class Runtime {
     );
 
     this.floatingHost = await new FloatingHost(this.host, this.store).start();
+    globalThis.__HYPNOOS3_HYPNOSIS_RULES__ = HYPNOSIS_RULES_API;
+    this.disposers.push(() => {
+      if (globalThis.__HYPNOOS3_HYPNOSIS_RULES__ === HYPNOSIS_RULES_API) delete globalThis.__HYPNOOS3_HYPNOSIS_RULES__;
+    });
 
     const context = this.host.context;
     const chatChanged = context?.eventTypes?.CHAT_CHANGED;

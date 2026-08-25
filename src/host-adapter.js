@@ -61,6 +61,38 @@ function messageVariableSnapshot(message) {
   return null;
 }
 
+function visibleUserMessage(message) {
+  if (!message || typeof message !== 'object') return false;
+  if (message.is_system || message.hidden || message.is_hidden || message.internal || message.is_internal || message.deleted || message.is_deleted) return false;
+  if (message.is_user === true || message.isUser === true || message.from_user === true) return true;
+  return String(message.role || message.type || '').toLowerCase() === 'user';
+}
+
+function messageText(message) {
+  const value = message?.mes ?? message?.message ?? message?.content ?? message?.text ?? message?.raw ?? '';
+  return typeof value === 'string' ? value : String(value || '');
+}
+
+export function extractLatestUserOperationBlock(chat) {
+  const list = Array.isArray(chat) ? chat : [];
+  const latest = [...list].reverse().find(visibleUserMessage);
+  const text = messageText(latest);
+  const matches = [...text.matchAll(/<(本轮操作|本轮APP操作)>([\s\S]*?)<\/\1>/g)];
+  if (matches.length !== 1 || !String(matches[0][2] || '').trim()) return '';
+  return `<本轮操作>${matches[0][2]}</本轮操作>`;
+}
+
+export function buildLatestOperationGate(chat) {
+  const block = extractLatestUserOperationBlock(chat);
+  if (!block) return '';
+  return [
+    '[HypnoOS本轮操作执行闸门｜只认最新真实用户消息]',
+    '下方容器是本次回复唯一有效的前端操作队列，不是历史、背景或建议。先逐项列全并安排可见的执行过程、成功或失败及直接反应；处理完之前不得续写旧剧情。',
+    '正文必须实际执行而不是复述；变量更新必须逐项遵守AI写/AI不动和完整催眠规则。全部完成后停在最后一项直接后果，不恢复旧剧情、不另开事件、不替用户决定下一步。',
+    block,
+  ].join('\n');
+}
+
 export class HostAdapter {
   #disposers = [];
   #promptText = '';
@@ -206,7 +238,10 @@ export class HostAdapter {
   installPromptLifecycle() {
     const context = this.context;
     if (!context?.eventSource || !context?.eventTypes || !context?.setExtensionPrompt) return;
-    const refresh = () => context.setExtensionPrompt(PROMPT_ID, this.#promptText, 1, 4, false, 0);
+    const refresh = () => {
+      const prompt = [this.#promptText, buildLatestOperationGate(context.chat)].filter(Boolean).join('\n\n');
+      context.setExtensionPrompt(PROMPT_ID, prompt, 1, 4, false, 0);
+    };
     const clear = () => context.setExtensionPrompt(PROMPT_ID, '', -1, 0, false, 0);
     const before = context.eventTypes.GENERATION_AFTER_COMMANDS;
     const changed = context.eventTypes.CHAT_CHANGED;
