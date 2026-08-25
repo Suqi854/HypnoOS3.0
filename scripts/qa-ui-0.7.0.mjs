@@ -63,6 +63,17 @@ async function openPhone(viewport, screenshotPrefix) {
       loadWorldInfo(name) { return name === 'qa-book-2'
         ? { entries: { 1: { uid: 11, comment: '[地点] QA海滨公园', content: `${name}: 海滨公园与商业街。` }, 2: { uid: 12, comment: '[角色] QA女性档案', content: '<QA女性人设>\n姓名: QA女性\n性别: 女\n年龄: 19\n职业: 学生会成员\n身高: 165cm' } } }
         : { entries: { 1: { uid: 1, comment: '[地点] QA测试地点', content: `${name}: 测试地点，包含图书馆和车站。` }, 2: { uid: 2, comment: '[角色] QA男性档案', content: '<QA男性人设>\n姓名: QA男性\n性别: 男\n职业: 教师' } } }; },
+      generateRaw(options) {
+        globalThis.__hypnoosQaHostGenerateRawCount = (globalThis.__hypnoosQaHostGenerateRawCount || 0) + 1;
+        globalThis.__hypnoosQaHostGenerateRawPayload = options;
+        if (String(options?.systemPrompt || '').includes('HypnoOS人物档案提取器')) {
+          return JSON.stringify({ roles: [
+            { name: 'QA女性', gender: '女', age: '19', occupation: '学生会成员', height: '165cm', summary: '学生会成员，活跃于校园事务。' },
+            { name: 'QA男性', gender: '男', occupation: '教师', summary: '负责校园课程的教师。' },
+          ] });
+        }
+        return JSON.stringify({ roles: [] });
+      },
       convertCharacterBook(value) { return value; },
       saveMetadataDebounced() {},
       setExtensionPrompt() {},
@@ -281,7 +292,17 @@ async function openPhone(viewport, screenshotPrefix) {
   const checkedProfileStyle = await profilePicker.locator('[data-settings-profile-worldbooks][value="qa-book"]:checked').evaluate((node) => getComputedStyle(node).backgroundColor);
   assert.match(checkedProfileStyle, /rgb\(255, 63, 145\)/, '选中世界书没有显示粉色勾选状态');
   await frame.getByRole('button', { name: '读取并导入档案' }).click();
-  await frame.waitForFunction(() => document.body?.innerText?.includes('档案导入完成：女性 1 名，男性 1 名'));
+  await frame.waitForFunction(() => document.body?.innerText?.includes('模型分析与档案导入完成：女性 1 名，男性 1 名'));
+  assert.equal(await page.evaluate(() => globalThis.__hypnoosQaHostGenerateRawCount), 1, '档案导入没有调用酒馆当前模型');
+  assert.match(await page.evaluate(() => String(globalThis.__hypnoosQaHostGenerateRawPayload?.systemPrompt || '')), /HypnoOS人物档案提取器/);
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-profile-model-import.png`, fullPage: true });
+  await frame.getByRole('button', { name: '日志', exact: true }).click();
+  await frame.waitForSelector('.st-settings-log-panel');
+  assert.match(await frame.locator('[data-settings-log-view]').innerText(), /profile\.import\.success/);
+  assert.match(await frame.locator('[data-settings-log-view]').innerText(), /model\.host\.success/);
+  assert.equal(await frame.locator('.st-settings-tabs button').count(), 3, '设置页顶部没有三个功能标签');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-diagnostic-log.png`, fullPage: true });
+  await frame.getByRole('button', { name: '聊天与变量', exact: true }).click();
   const adaptivePicker = frame.locator('[data-settings-worldbook-picker="adaptive"]');
   assert.equal(await adaptivePicker.getAttribute('open'), null, '适配世界书选择器默认没有收起');
   await adaptivePicker.locator('summary').click();
@@ -409,7 +430,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.4-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.4-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.5-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.5-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

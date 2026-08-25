@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === '3e7a0d6f97556115d2f66a294913fabedce5afd89d29d31a50e330c6a4fa003c', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '9fe2bc9d9a370385c3da53d51bde167ab998994af38c39c3e182c42f54a8d618', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -37,6 +37,10 @@ expect(uiText.includes('openWorkPage(null)') && uiText.includes('activeWorkJobs(
 expect(uiText.includes('openMonitorPage(null)') && uiText.includes('adaptiveRecordsSync("monitor")[0]'), '监控没有保持原UI并接入适配数据');
 expect(uiText.includes('data-settings-worldbook-picker="adaptive"') && uiText.includes('type="checkbox"') && uiText.includes('generateAdaptiveWorldbookProfile(worldbookNames)'), '通用适配没有支持下拉多选世界书合并');
 expect(uiText.includes('data-settings-worldbook-picker="profile"') && uiText.includes('data-settings-profile-worldbooks') && uiText.includes('importProfileRolesFromWorldbooks'), '设置缺少下拉多选世界书档案导入');
+expect(uiText.includes('HypnoOS人物档案提取器') && uiText.includes('typeof globalThis.generateRaw === "function"'), '档案导入没有接入模型提取链');
+expect(uiText.includes('data-settings-profile-import-status') && uiText.includes('模型正在分析'), '档案导入缺少就地进度与结果反馈');
+expect(uiText.includes('data-settings-tab="logs"') && uiText.includes('data-settings-log-view') && uiText.includes('ST_DIAGNOSTIC_LOG_LIMIT'), '设置缺少诊断日志标签和有界日志存储');
+expect(uiText.includes('diagnosticRedact') && uiText.includes('[REDACTED]') && uiText.includes('profile.import.failure'), '诊断日志缺少脱敏或关键档案错误记录');
 expect(uiText.includes('.st-settings-worldbook-option input:checked') && uiText.includes('background:#ff3f91'), '世界书下拉多选缺少粉色勾选反馈');
 expect(uiText.includes("html: '<strong>档案</strong>'"), '男女档案顶部没有显示档案');
 expect(uiText.includes('const SETTINGS_CHEAT_UNLOCK_KEY = "666666"') && uiText.includes('data-settings-cheat-key'), '作弊模式缺少独立密钥门控');
