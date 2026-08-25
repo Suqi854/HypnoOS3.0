@@ -267,11 +267,31 @@ async function openPhone(viewport, screenshotPrefix) {
   await regionSelect.selectOption('auto');
   const scrollAfterRegionChange = await frame.locator('.st-settings-app .st-lite-body').evaluate((node) => node.scrollTop);
   assert.ok(scrollAfterRegionChange >= scrollBeforeRegionChange - 2, '设置点击后滚动位置回到了顶部');
-  await frame.waitForSelector('[data-settings-worldbook]:not([disabled])');
-  await frame.locator('[data-settings-profile-worldbooks]').selectOption(['qa-book', 'qa-book-2']);
+  await frame.waitForSelector('[data-settings-worldbook]:not([disabled])', { state: 'attached' });
+  const profilePicker = frame.locator('[data-settings-worldbook-picker="profile"]');
+  assert.equal(await profilePicker.getAttribute('open'), null, '档案世界书选择器默认没有收起');
+  await profilePicker.locator('summary').click();
+  assert.notEqual(await profilePicker.getAttribute('open'), null, '档案世界书选择器未能展开');
+  for (const name of ['qa-book', 'qa-book-2']) {
+    const input = profilePicker.locator(`[data-settings-profile-worldbooks][value="${name}"]`);
+    if (!await input.isChecked()) await input.locator('..').click();
+  }
+  assert.equal(await profilePicker.locator('[data-settings-profile-worldbooks]:checked').count(), 2);
+  assert.equal(await profilePicker.locator('[data-settings-worldbook-summary]').innerText(), '已选择 2 本世界书');
+  const checkedProfileStyle = await profilePicker.locator('[data-settings-profile-worldbooks][value="qa-book"]:checked').evaluate((node) => getComputedStyle(node).backgroundColor);
+  assert.match(checkedProfileStyle, /rgb\(255, 63, 145\)/, '选中世界书没有显示粉色勾选状态');
   await frame.getByRole('button', { name: '读取并导入档案' }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('档案导入完成：女性 1 名，男性 1 名'));
-  await frame.locator('[data-settings-worldbook]').selectOption(['qa-book', 'qa-book-2']);
+  const adaptivePicker = frame.locator('[data-settings-worldbook-picker="adaptive"]');
+  assert.equal(await adaptivePicker.getAttribute('open'), null, '适配世界书选择器默认没有收起');
+  await adaptivePicker.locator('summary').click();
+  for (const name of ['qa-book', 'qa-book-2']) {
+    const input = adaptivePicker.locator(`[data-settings-worldbook][value="${name}"]`);
+    if (!await input.isChecked()) await input.locator('..').click();
+  }
+  assert.equal(await adaptivePicker.locator('[data-settings-worldbook]:checked').count(), 2);
+  assert.equal(await adaptivePicker.locator('[data-settings-worldbook-summary]').innerText(), '已选择 2 本世界书');
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-worldbook-dropdown-open.png`, fullPage: true });
   await frame.getByRole('button', { name: '合并生成', exact: true }).click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('已合并 2 本世界书完成适配'));
   const generatedProfile = await frame.evaluate(() => {
@@ -389,7 +409,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.3-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.3-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.4-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.4-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();
