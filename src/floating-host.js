@@ -54,7 +54,7 @@ export class FloatingHost {
     script.dataset.hostId = HOST_ID;
     script.dataset.registryEvent = 'HYPNOOS3_EXTENSION_FLOATING_REGISTRY_READY';
     script.dataset.storageKey = 'hypnoos3.extension.floatingPhone.ui.v1';
-    script.dataset.revision = 'hypnoos3-0.7.0';
+    script.dataset.revision = 'hypnoos3-0.7.1';
     script.dataset.mode = 'host';
     script.async = false;
     document.head.append(script);
@@ -101,6 +101,7 @@ export class FloatingHost {
           if (!listeners.get(key)?.size) listeners.delete(key);
         } };
       },
+      getWorldbookNames() { return host.getWorldbookNames(); },
       getCharWorldbookNames() { return host.getCharacterWorldbookNames(); },
       getWorldbook(name) { return host.loadWorldbook(name); },
       directSend(text) { return host.directSend(text); },

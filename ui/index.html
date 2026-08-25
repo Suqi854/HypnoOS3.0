@@ -4600,6 +4600,8 @@ var __webpack_exports__ = __webpack_require__("./src/催眠APP前端/index.tsx")
 .st-settings-button.danger{border-color:rgba(248,113,113,.34);background:rgba(127,29,29,.28);color:#fecaca}
 .st-settings-button:disabled{opacity:.46;cursor:not-allowed;filter:saturate(.6)}
 .st-settings-code{width:100%;min-height:96px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:rgba(2,6,23,.54);color:#dbeafe;outline:none;padding:9px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;line-height:1.45;resize:vertical}
+.st-settings-region-select{width:100%;height:34px;min-height:34px;border:1px solid rgba(148,163,184,.22);border-radius:9px;background:#111827;color:#f8fafc;padding:0 9px;font-size:10px;font-weight:800;outline:none}
+.st-settings-region-fields{display:grid;gap:8px;margin-top:8px}.st-settings-region-fields label{display:grid;gap:5px;color:#cbd5e1;font-size:10px;font-weight:800}
 .st-settings-file{width:100%;min-width:0;border:1px dashed rgba(148,163,184,.24);border-radius:9px;background:rgba(255,255,255,.045);color:rgba(226,232,240,.76);padding:8px;font-size:10px}
 .st-settings-status{border:1px solid rgba(45,212,191,.16);border-radius:9px;background:rgba(20,184,166,.08);color:#99f6e4;padding:8px 9px;font-size:11px;line-height:1.45}
 .st-settings-report{display:grid;gap:7px;max-height:180px;overflow:auto;scrollbar-width:thin}
@@ -39091,10 +39093,14 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   }
 
   const ST_ADAPTIVE_REGION_KEY = "hypnoos:adaptive-region:v1";
+  const ST_ADAPTIVE_SELECTED_WORLDBOOK_PREFIX = "hypnoos:adaptive-worldbook:v1";
+  const ST_ADAPTIVE_GENERATED_PREFIX = "hypnoos:world-adaptation:v1";
+  const ST_ADAPTIVE_SCHEMA = "HypnoWorldAdaptation/v1";
   const ST_ADAPTIVE_APP_META = {
     map: { title: "地图", keywords: /地图|地点|场景|城市|学校|校舍|住宅|医院|商店|公园/u, action: "前往" },
     monitor: { title: "监控", keywords: /监控|摄像|安保|观察|监视/u, action: "查看" },
     calendar: { title: "日历", keywords: /日历|日期|节日|假期|课程|课表|时间|学期/u, action: "查看日程" },
+    timetable: { title: "课程表", keywords: /课程|课表|上课|学科|教室|教师|学期/u, action: "加入安排" },
     rewards: { title: "成就和任务", keywords: /成就|任务|委托|奖励|目标/u, action: "记录" },
     work: { title: "打工", keywords: /打工|工作|兼职|职业|薪资|工资/u, action: "开始" },
     mchan: { title: "MC匿名版", keywords: /匿名|论坛|帖子|社区|MC匿名版/u, action: "查看帖子" }
@@ -39104,6 +39110,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       map: [{ title: "学校", summary: "教学楼、图书馆、操场、食堂与宿舍等校园区域。" }, { title: "城市中心", summary: "商业街、医院、车站、公园与公共服务设施。" }, { title: "住宅区", summary: "主角与角色居住、休息和日常往来的区域。" }],
       monitor: [{ title: "校园公共监控", summary: "教学楼入口、走廊、操场和校门等公共区域的监控摘要。" }, { title: "城市公共监控", summary: "车站、商业街与主要路口的公共安全监控摘要。" }],
       calendar: [{ title: "中国通用校历", summary: "周一至周五上课或工作，周末休息；法定节假日按当前剧情年份调整。" }, { title: "今日安排", summary: "上午课程或工作、午间休息、下午课程或工作，晚间为自由活动。" }],
+      timetable: [{ title: "周一至周五通用课程", summary: "上午四节、下午三至四节；具体学科、教室和任课角色可在剧情中调整。" }, { title: "周末安排", summary: "默认无课，可用于社团、补习、兼职或自由活动。" }],
       rewards: [{ title: "日常任务", summary: "根据当前剧情地点与人物关系生成一项可完成目标。" }, { title: "阶段成就", summary: "当探索、社交或资源积累达到阶段条件时记录成就。" }],
       work: [{ title: "便利店兼职", summary: "通用服务业班次，适合城市或校园附近剧情。" }, { title: "家教", summary: "按课程与角色关系安排的通用兼职。" }, { title: "临时活动协助", summary: "展会、社团或商业活动中的短期工作。" }],
       mchan: [{ title: "校园闲聊", summary: "匿名讨论近期校园见闻、社团活动与人物传闻。" }, { title: "城市生活", summary: "匿名分享城市活动、兼职和公共事件。" }]
@@ -39112,6 +39119,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       map: [{ title: "学校", summary: "校舍、体育馆、部室、图书室、食堂与通学路等校园区域。" }, { title: "駅前", summary: "车站、商店街、咖啡店、公园与公共设施。" }, { title: "住宅街", summary: "角色住宅、神社与安静的日常活动区域。" }],
       monitor: [{ title: "校内公共监控", summary: "校门、走廊、体育馆入口与公共区域的监控摘要。" }, { title: "駅前公共监控", summary: "车站与商店街公共区域的安全监控摘要。" }],
       calendar: [{ title: "日本通用校历", summary: "四月开学，包含黄金周、暑假、文化祭、体育祭与寒假等常见安排。" }, { title: "今日安排", summary: "晨会、上午课程、午休、下午课程与社团活动，晚间为自由活动。" }],
+      timetable: [{ title: "平日通用课程", summary: "晨会后安排上午课程、午休、下午课程与放学后的社团活动。" }, { title: "休日安排", summary: "默认无课，可用于部活、补习、兼职或自由活动。" }],
       rewards: [{ title: "日常任务", summary: "根据当前剧情地点与人物关系生成一项可完成目标。" }, { title: "阶段成就", summary: "当社团、探索或关系推进达到阶段条件时记录成就。" }],
       work: [{ title: "コンビニ兼职", summary: "车站或住宅街附近的通用便利店班次。" }, { title: "家庭教师", summary: "按课程与角色关系安排的通用兼职。" }, { title: "文化祭协助", summary: "学校活动、社团摊位或短期活动协助。" }],
       mchan: [{ title: "学校裏掲示板", summary: "匿名讨论校内见闻、社团与人物传闻。" }, { title: "駅前生活", summary: "匿名分享商店街、兼职和城市活动。" }]
@@ -39119,43 +39127,179 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   };
 
   function readAdaptiveRegion() {
-    try { return localStorage.getItem(ST_ADAPTIVE_REGION_KEY) === "japan" ? "japan" : "china"; } catch { return "china"; }
+    try {
+      const value = localStorage.getItem(ST_ADAPTIVE_REGION_KEY);
+      return value === "japan" || value === "auto" ? value : "china";
+    } catch { return "china"; }
   }
 
   function writeAdaptiveRegion(region) {
-    const value = region === "japan" ? "japan" : "china";
+    const value = region === "japan" || region === "auto" ? region : "china";
     try { localStorage.setItem(ST_ADAPTIVE_REGION_KEY, value); } catch {}
     return value;
   }
 
-  function adaptiveEntryRecord(entry) {
-    const rawTitle = String(encounterEntryTitle(entry) || "世界书条目");
-    const title = rawTitle.replace(/\[[^\]]*\]/g, " ").trim() || "世界书条目";
-    const content = String(entry?.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    return { title: title.slice(0, 48), summary: (content || encounterEntryText(entry)).slice(0, 220) };
+  function adaptiveStorageScope() {
+    return roleFavoriteLegacyStorageScope();
+  }
+
+  function adaptiveSelectedWorldbookKey() {
+    return ST_ADAPTIVE_SELECTED_WORLDBOOK_PREFIX + ":" + adaptiveStorageScope();
+  }
+
+  function adaptiveGeneratedKey() {
+    return ST_ADAPTIVE_GENERATED_PREFIX + ":" + adaptiveStorageScope();
+  }
+
+  function readAdaptiveSelectedWorldbook() {
+    try { return String(localStorage.getItem(adaptiveSelectedWorldbookKey()) || ""); } catch { return ""; }
+  }
+
+  function writeAdaptiveSelectedWorldbook(name) {
+    try { localStorage.setItem(adaptiveSelectedWorldbookKey(), String(name || "")); } catch {}
+  }
+
+  function readAdaptiveGeneratedProfile() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(adaptiveGeneratedKey()) || "null");
+      return parsed?.schema === ST_ADAPTIVE_SCHEMA && parsed.apps && typeof parsed.apps === "object" ? parsed : null;
+    } catch { return null; }
+  }
+
+  function writeAdaptiveGeneratedProfile(profile) {
+    localStorage.setItem(adaptiveGeneratedKey(), JSON.stringify(profile));
+    return profile;
+  }
+
+  function clearAdaptiveGeneratedProfile() {
+    try { localStorage.removeItem(adaptiveGeneratedKey()); } catch {}
+  }
+
+  function adaptiveCleanText(value, max = 220) {
+    return String(value || "").replace(/<[^>]+>/g, " ").replace(/[\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+  }
+
+  function adaptiveNormalizeRecords(value) {
+    return (Array.isArray(value) ? value : []).slice(0, 16).map((item, index) => {
+      if (typeof item === "string") return { id: "item-" + index, title: adaptiveCleanText(item, 48) || "未命名项目", summary: "" };
+      return {
+        id: adaptiveCleanText(item?.id, 48) || "item-" + index,
+        title: adaptiveCleanText(item?.title || item?.name, 48) || "未命名项目",
+        summary: adaptiveCleanText(item?.summary || item?.description || item?.content, 260),
+        meta: adaptiveCleanText(item?.meta || item?.time || item?.schedule || item?.location || item?.condition, 100)
+      };
+    }).filter((item) => item.title || item.summary);
+  }
+
+  function adaptiveNormalizeGeneratedPayload(payload, worldbookName, sourceHash) {
+    const sourceApps = payload?.apps && typeof payload.apps === "object" ? payload.apps : {};
+    const apps = {};
+    for (const kind of Object.keys(ST_ADAPTIVE_APP_META)) apps[kind] = adaptiveNormalizeRecords(sourceApps[kind]);
+    const missing = Object.keys(ST_ADAPTIVE_APP_META).filter((kind) => !apps[kind].length);
+    if (missing.length) throw new Error("模型未生成完整应用数据：" + missing.map((kind) => ST_ADAPTIVE_APP_META[kind].title).join("、"));
+    return {
+      schema: ST_ADAPTIVE_SCHEMA,
+      worldbookName: adaptiveCleanText(worldbookName, 120),
+      sourceHash,
+      generatedAt: new Date().toISOString(),
+      apps
+    };
+  }
+
+  async function adaptiveSourceHash(text) {
+    const source = String(text || "");
+    try {
+      const bytes = new TextEncoder().encode(source);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    } catch {
+      let hash = 2166136261;
+      for (const char of source) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+      return "fnv1a-" + (hash >>> 0).toString(16).padStart(8, "0");
+    }
+  }
+
+  async function adaptiveListWorldbooks() {
+    const names = new Set();
+    for (const win of encounterCandidateWindows()) {
+      for (const target of encounterTavernHelperTargets(win)) {
+        if (typeof target?.getWorldbookNames !== "function") continue;
+        try { (await target.getWorldbookNames() || []).forEach((name) => names.add(String(name))); } catch {}
+      }
+      try { (win?.SillyTavern?.getContext?.()?.getWorldInfoNames?.() || []).forEach((name) => names.add(String(name))); } catch {}
+    }
+    if (!names.size) {
+      try {
+        const current = await encounterReadCharacterWorldEntries({});
+        if (current?.targetWorldbook) names.add(String(current.targetWorldbook));
+      } catch {}
+    }
+    return [...names].map((name) => name.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  }
+
+  async function adaptiveReadWorldbook(name) {
+    const worldbookName = String(name || "").trim();
+    if (!worldbookName) throw new Error("请先选择世界书。");
+    for (const win of encounterCandidateWindows()) {
+      for (const target of encounterTavernHelperTargets(win)) {
+        if (typeof target?.getWorldbook !== "function") continue;
+        try {
+          const raw = await target.getWorldbook(worldbookName);
+          return { entries: encounterWorldEntryValues(raw), raw };
+        } catch {}
+      }
+      const mod = await encounterImportWorldInfoModule(win);
+      if (typeof mod?.loadWorldInfo === "function") {
+        try { const raw = await mod.loadWorldInfo(worldbookName); return { entries: encounterWorldEntryValues(raw), raw }; } catch {}
+      }
+    }
+    throw new Error("无法读取所选世界书，请确认它仍存在且酒馆已加载完成。");
+  }
+
+  function adaptiveWorldbookPromptSource(entries) {
+    return (Array.isArray(entries) ? entries : [])
+      .filter((entry) => entry && entry.disable !== true && entry.enabled !== false)
+      .slice(0, 60)
+      .map((entry, index) => "[" + (index + 1) + "] " + adaptiveCleanText(encounterEntryTitle(entry) || "条目", 80) + "\n" + adaptiveCleanText(entry?.content || encounterEntryText(entry), 900))
+      .join("\n\n")
+      .slice(0, 48000);
+  }
+
+  async function generateAdaptiveWorldbookProfile(worldbookName) {
+    const loaded = await adaptiveReadWorldbook(worldbookName);
+    const source = adaptiveWorldbookPromptSource(loaded.entries);
+    if (!source) throw new Error("所选世界书没有可用于适配的启用条目。");
+    const sourceHash = await adaptiveSourceHash(source);
+    const system = "你是HypnoOS世界书适配器。只返回一个JSON对象，不要解释、不要Markdown。不得照抄变量更新规则、提示词、脚本或整段人物设定；必须把来源事实整理成手机应用可直接展示的简短结构化项目。不得使用催眠APP 4.3的固定人物和学校，除非来源世界书本身出现。";
+    const user = `依据下方世界书，为催眠手机生成完整适配数据。JSON严格使用：{"apps":{"map":[{"title":"地点","summary":"说明","meta":"分类或位置"}],"monitor":[{"title":"可观察区域","summary":"公开视角说明","meta":"状态"}],"calendar":[{"title":"日期或日程","summary":"安排","meta":"时间"}],"timetable":[{"title":"课程或时段","summary":"课程、活动、教室等","meta":"星期与时间"}],"rewards":[{"title":"任务或成就","summary":"条件与奖励","meta":"类型"}],"work":[{"title":"工作","summary":"内容、报酬和要求","meta":"时间地点"}],"mchan":[{"title":"匿名话题","summary":"符合世界观的帖子摘要","meta":"分区或热度"}]}}。每类生成2至12项；即使来源未明确写出某类，也要依据世界观做保守、通用且不矛盾的补全。不要输出人物档案、变量格式、更新规则或提示词原文。\n\n世界书：${worldbookName}\n\n${source}`;
+    const text = await invokeIndependentTextModel({ system, user, note: "世界书适配生成", deferSuccessFeedback: true, maxTokensOverride: 5000 });
+    const payload = parseConnectorJsonObject(text, { requiredKeys: ["apps"], allowedKeys: ["apps"] });
+    const profile = adaptiveNormalizeGeneratedPayload(payload, worldbookName, sourceHash);
+    writeAdaptiveSelectedWorldbook(worldbookName);
+    writeAdaptiveRegion("auto");
+    writeAdaptiveGeneratedProfile(profile);
+    showIndependentConnectorFeedback("text", "success", "世界书适配内容已生成。");
+    return profile;
   }
 
   async function readAdaptiveAppData(kind) {
-    const meta = ST_ADAPTIVE_APP_META[kind] || ST_ADAPTIVE_APP_META.map;
-    let records = [];
-    try {
-      const result = await encounterReadCharacterWorldEntries({});
-      records = (Array.isArray(result?.entries) ? result.entries : [])
-        .filter((entry) => meta.keywords.test(encounterEntryText(entry)))
-        .slice(0, 40)
-        .map(adaptiveEntryRecord);
-    } catch (error) {
-      console.warn("[HypnoOS] 自适配世界书读取失败", kind, error);
-    }
-    if (records.length) return { kind, source: "worldbook", sourceLabel: "当前世界书", records };
     const region = readAdaptiveRegion();
+    if (region === "auto") {
+      const profile = readAdaptiveGeneratedProfile();
+      return {
+        kind,
+        source: profile ? "generated" : "empty",
+        sourceLabel: profile ? "世界书适配 · " + profile.worldbookName : "尚未生成世界书适配",
+        records: profile ? adaptiveNormalizeRecords(profile.apps?.[kind]) : []
+      };
+    }
     return { kind, source: "template", sourceLabel: region === "japan" ? "日本通用模板" : "中国通用模板", records: (ST_ADAPTIVE_TEMPLATES[region]?.[kind] || []).map((item) => ({ ...item })) };
   }
 
   function ensureAdaptiveWorldStyle() {
     if (document.getElementById("st-adaptive-world-style")) return;
     const style = document.createElement("style"); style.id = "st-adaptive-world-style";
-    style.textContent = `.st-adaptive-world-app{background:linear-gradient(180deg,#111a36,#050919);color:#f7f1dc}.st-adaptive-world-app .st-lite-body{display:grid;align-content:start;gap:10px;padding:12px;overflow:auto}.st-adaptive-source{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid rgba(94,234,212,.35);border-radius:13px;background:rgba(15,93,101,.25);padding:10px;color:#ccfbf1;font-size:10px}.st-adaptive-source strong{font-size:11px}.st-adaptive-list{display:grid;gap:9px}.st-adaptive-card{border:1px solid rgba(148,163,184,.28);border-radius:15px;background:rgba(15,23,42,.78);padding:12px}.st-adaptive-card h3{margin:0;color:#fff;font-size:14px}.st-adaptive-card p{margin:7px 0;color:#bdc8da;font-size:10px;line-height:1.6;white-space:pre-wrap}.st-adaptive-card button{width:100%;min-height:36px;margin-top:4px;border:1px solid rgba(94,234,212,.48);border-radius:10px;background:#0f5d65;color:#fff;font-weight:800}.st-adaptive-feedback{margin:0;color:#99f6e4;font-size:10px}.st-adaptive-empty{padding:30px 12px;text-align:center;color:#94a3b8}`;
+    style.textContent = `.st-adaptive-world-app{background:linear-gradient(180deg,#111a36,#050919);color:#f7f1dc}.st-adaptive-world-app .st-lite-body{display:grid;align-content:start;gap:10px;padding:12px;overflow:auto}.st-adaptive-source{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid rgba(94,234,212,.35);border-radius:13px;background:rgba(15,93,101,.25);padding:10px;color:#ccfbf1;font-size:10px}.st-adaptive-source strong{font-size:11px;text-align:right}.st-adaptive-list{display:grid;gap:9px}.st-adaptive-card{border:1px solid rgba(148,163,184,.28);border-radius:15px;background:rgba(15,23,42,.78);padding:12px}.st-adaptive-card h3{margin:0;color:#fff;font-size:14px}.st-adaptive-card p{margin:7px 0;color:#bdc8da;font-size:10px;line-height:1.6;white-space:pre-wrap}.st-adaptive-card small{display:block;color:#7dd3fc;font-size:9px}.st-adaptive-card button{width:100%;min-height:36px;margin-top:7px;border:1px solid rgba(94,234,212,.48);border-radius:10px;background:#0f5d65;color:#fff;font-weight:800}.st-adaptive-feedback{margin:0;color:#99f6e4;font-size:10px}.st-adaptive-empty{padding:30px 12px;text-align:center;color:#94a3b8;line-height:1.7}`;
     document.head.appendChild(style);
   }
 
@@ -39165,8 +39309,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const token = Date.now() + ":" + Math.random(); page.dataset.adaptiveToken = token;
     const data = await readAdaptiveAppData(kind);
     if (!page.isConnected || page.dataset.adaptiveToken !== token) return;
-    const cards = data.records.map((item, index) => '<article class="st-adaptive-card"><h3>' + escapeHtml(item.title) + '</h3><p>' + escapeHtml(item.summary) + '</p>' + (kind === "calendar" ? '' : '<button type="button" data-adaptive-action="' + index + '">' + escapeHtml(meta.action) + '</button>') + '</article>').join("");
-    page.innerHTML = renderLiteHeader(page, { title: meta.title, islandText: "WORLD" }) + '<main class="st-lite-body"><div class="st-adaptive-source"><span>数据来源</span><strong>' + escapeHtml(data.sourceLabel) + '</strong></div>' + (page.dataset.adaptiveFeedback ? '<p class="st-adaptive-feedback" role="status" aria-live="polite">' + escapeHtml(page.dataset.adaptiveFeedback) + '</p>' : '') + '<section class="st-adaptive-list">' + (cards || '<p class="st-adaptive-empty">当前世界书与通用模板都没有该类数据。</p>') + '</section></main>';
+    const cards = data.records.map((item, index) => '<article class="st-adaptive-card"><h3>' + escapeHtml(item.title) + '</h3><p>' + escapeHtml(item.summary) + '</p>' + (item.meta ? '<small>' + escapeHtml(item.meta) + '</small>' : '') + (kind === "calendar" ? '' : '<button type="button" data-adaptive-action="' + index + '">' + escapeHtml(meta.action) + '</button>') + '</article>').join("");
+    const emptyText = data.source === "empty" ? '请先到“设置 → 通用适配模板”选择“根据世界书自动生成”，再选择世界书并点击生成。' : '当前模板没有该类数据。';
+    page.innerHTML = renderLiteHeader(page, { title: meta.title, islandText: "WORLD" }) + '<main class="st-lite-body"><div class="st-adaptive-source"><span>数据来源</span><strong>' + escapeHtml(data.sourceLabel) + '</strong></div>' + (page.dataset.adaptiveFeedback ? '<p class="st-adaptive-feedback" role="status" aria-live="polite">' + escapeHtml(page.dataset.adaptiveFeedback) + '</p>' : '') + '<section class="st-adaptive-list">' + (cards || '<p class="st-adaptive-empty">' + escapeHtml(emptyText) + '</p>') + '</section></main>';
     bindLiteHeader(page, () => renderAdaptiveWorldApp(page));
     page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => { const root = page.parentElement; setPhoneActiveApp(root, ""); page.remove(); void applyHomeWallpaper(root); });
     page.querySelectorAll('[data-adaptive-action]').forEach((button) => button.addEventListener("click", async () => {
@@ -39191,6 +39336,10 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     const status = String(page.dataset.settingsStatus || "");
     const report = settingsVariableReport();
     const cheatActive = settingsCheatModeActive();
+    const adaptiveMode = page.dataset.settingsAdaptiveMode || readAdaptiveRegion();
+    const adaptiveWorldbooks = Array.isArray(page.__stAdaptiveWorldbooks) ? page.__stAdaptiveWorldbooks : [];
+    const adaptiveSelected = page.dataset.settingsAdaptiveWorldbook || readAdaptiveSelectedWorldbook();
+    const adaptiveOptions = [...new Set([adaptiveSelected, ...adaptiveWorldbooks].filter(Boolean))].map((name) => '<option value="' + escapeHtml(name) + '" ' + (name === adaptiveSelected ? "selected" : "") + '>' + escapeHtml(name) + '</option>').join("");
     const settingsTab = page.dataset.settingsTab === "models" ? "models" : "general";
     const tabs = '<nav class="st-settings-tabs"><button type="button" data-settings-tab="general" class="' + (settingsTab === "general" ? "active" : "") + '">聊天与变量</button><button type="button" data-settings-tab="models" class="' + (settingsTab === "models" ? "active" : "") + '">模型插头</button></nav>';
     page.innerHTML =
@@ -39242,9 +39391,9 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
         '</section>' +
         '<section class="st-settings-panel st-settings-region-panel">' +
           '<h3>通用适配模板</h3>' +
-          '<p>各应用优先读取当前角色世界书；对应类别没有可用数据时，才使用这里选择的通用模板。切换不会修改原世界书。</p>' +
-          '<select class="st-settings-code" data-settings-region aria-label="选择通用适配模板"><option value="china" ' + (readAdaptiveRegion() === "china" ? "selected" : "") + '>中国版</option><option value="japan" ' + (readAdaptiveRegion() === "japan" ? "selected" : "") + '>日本版</option></select>' +
-          '<div class="st-settings-actions is-single"><button type="button" class="st-settings-button primary" data-settings-action="save-region">切换通用模板</button></div>' +
+          '<p>中国版、日本版提供通用内容；选择“根据世界书自动生成”后，可指定世界书生成地图、课程表等应用的专用适配内容。原世界书不会被修改。</p>' +
+          '<select class="st-settings-region-select" data-settings-region aria-label="选择通用适配模板"><option value="china" ' + (adaptiveMode === "china" ? "selected" : "") + '>中国版</option><option value="japan" ' + (adaptiveMode === "japan" ? "selected" : "") + '>日本版</option><option value="auto" ' + (adaptiveMode === "auto" ? "selected" : "") + '>根据世界书自动生成</option></select>' +
+          (adaptiveMode === "auto" ? '<div class="st-settings-region-fields"><label>选择世界书<select class="st-settings-region-select" data-settings-worldbook ' + (!adaptiveOptions ? "disabled" : "") + '><option value="">' + (page.dataset.settingsAdaptiveWorldbooksLoading === "true" ? "正在读取世界书…" : "请选择世界书") + '</option>' + adaptiveOptions + '</select></label><button type="button" class="st-settings-button primary" data-settings-action="generate-adaptive" ' + (!adaptiveSelected ? "disabled" : "") + '>生成</button></div>' : '<div class="st-settings-actions is-single"><button type="button" class="st-settings-button primary" data-settings-action="save-region">切换通用模板</button></div>') +
         '</section>' +
         '<section class="st-settings-panel st-settings-cheat-panel ' + (cheatActive ? "is-active" : "") + '">' +
           '<h3>作弊模式</h3>' +
@@ -39252,6 +39401,11 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
           '<div class="st-settings-actions is-single">' +
             '<button type="button" class="st-settings-button ' + (cheatActive ? "danger" : "primary") + '" data-settings-action="' + (cheatActive ? "cheat-off" : "cheat-on") + '">' + (cheatActive ? "关闭作弊模式" : "开启作弊模式") + '</button>' +
           '</div>' +
+        '</section>' +
+        '<section class="st-settings-panel">' +
+          '<h3>世界书适配数据</h3>' +
+          '<p>只清空当前聊天中由“根据世界书自动生成”创建的适配内容；不会修改或删除原世界书，也不会清除中国版、日本版通用模板。</p>' +
+          '<div class="st-settings-actions is-single"><button type="button" class="st-settings-button danger" data-settings-action="clear-adaptive-data" ' + (!readAdaptiveGeneratedProfile() ? "disabled" : "") + '>清空数据</button></div>' +
         '</section>'
         )) +
       '</main>';
@@ -39265,12 +39419,59 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
       });
     });
     if (settingsTab === "models") bindModelConnectorSettings(page);
+    page.querySelector('[data-settings-region]')?.addEventListener("change", (event) => {
+      page.dataset.settingsAdaptiveMode = String(event.target.value || "china");
+      renderSettingsPage(page);
+    });
+    page.querySelector('[data-settings-worldbook]')?.addEventListener("change", (event) => {
+      page.dataset.settingsAdaptiveWorldbook = String(event.target.value || "");
+      renderSettingsPage(page);
+    });
     page.querySelector('[data-settings-action="save-region"]')?.addEventListener("click", (event) => {
       settingsStopEvent(event);
       const region = writeAdaptiveRegion(page.querySelector('[data-settings-region]')?.value);
-      page.dataset.settingsStatus = "通用适配模板已切换为" + (region === "japan" ? "日本版" : "中国版") + "；有世界书数据的应用仍优先使用世界书。";
+      page.dataset.settingsStatus = "通用适配模板已切换为" + (region === "japan" ? "日本版" : "中国版") + "。";
       renderSettingsPage(page);
     });
+    page.querySelector('[data-settings-action="generate-adaptive"]')?.addEventListener("click", async (event) => {
+      settingsStopEvent(event);
+      const worldbookName = String(page.dataset.settingsAdaptiveWorldbook || page.querySelector('[data-settings-worldbook]')?.value || "").trim();
+      if (!worldbookName) { page.dataset.settingsStatus = "请先选择世界书。"; renderSettingsPage(page); return; }
+      page.dataset.settingsStatus = "正在读取世界书并生成地图、课程表等应用内容…";
+      renderSettingsPage(page);
+      try {
+        const profile = await generateAdaptiveWorldbookProfile(worldbookName);
+        page.dataset.settingsAdaptiveMode = "auto";
+        page.dataset.settingsAdaptiveWorldbook = profile.worldbookName;
+        page.dataset.settingsStatus = "已完成世界书适配：" + profile.worldbookName + "。地图、课程表等应用已切换到生成内容。";
+      } catch (error) {
+        page.dataset.settingsStatus = "生成失败：" + String(error?.message || error || "未知错误");
+      }
+      renderSettingsPage(page);
+    });
+    page.querySelector('[data-settings-action="clear-adaptive-data"]')?.addEventListener("click", async (event) => {
+      settingsStopEvent(event);
+      const ok = await encounterConfirm(page, { title: "清空世界书适配数据", message: "只会清空当前聊天生成的催眠手机适配内容，原世界书不会被修改。", confirmText: "确认清空" });
+      if (!ok) return;
+      clearAdaptiveGeneratedProfile();
+      page.dataset.settingsStatus = "已清空当前聊天的世界书适配数据。";
+      renderSettingsPage(page);
+    });
+    if (settingsTab === "general" && adaptiveMode === "auto" && page.dataset.settingsAdaptiveWorldbooksLoaded !== "true" && page.dataset.settingsAdaptiveWorldbooksLoading !== "true") {
+      page.dataset.settingsAdaptiveWorldbooksLoading = "true";
+      adaptiveListWorldbooks().then((names) => {
+        page.__stAdaptiveWorldbooks = names;
+        page.dataset.settingsAdaptiveWorldbooksLoaded = "true";
+        delete page.dataset.settingsAdaptiveWorldbooksLoading;
+        if (!page.dataset.settingsAdaptiveWorldbook && !readAdaptiveSelectedWorldbook() && names.length === 1) page.dataset.settingsAdaptiveWorldbook = names[0];
+        if (page.isConnected) renderSettingsPage(page);
+      }).catch((error) => {
+        delete page.dataset.settingsAdaptiveWorldbooksLoading;
+        page.dataset.settingsAdaptiveWorldbooksLoaded = "true";
+        page.dataset.settingsStatus = "世界书列表读取失败：" + String(error?.message || error || "未知错误");
+        if (page.isConnected) renderSettingsPage(page);
+      });
+    }
     page.querySelector('[data-lite-action="back"]')?.addEventListener("click", () => {
       const root = page.parentElement;
       setPhoneActiveApp(root, "");
@@ -40798,7 +40999,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
   window.__ST_OPEN_FEMALE_PROFILE_APP__ = (tab, roleName) => openFemaleProfilePage(null, tab, roleName);
   window.__ST_OPEN_MALE_PROFILE_APP__ = (tab, roleName) => openMaleProfilePage(null, tab, roleName);
   window.__ST_OPEN_LITE_CALENDAR_APP__ = () => openAdaptiveWorldApp(null, "calendar");
-  window.__ST_OPEN_TIMETABLE_APP__ = () => openTimetablePage();
+  window.__ST_OPEN_TIMETABLE_APP__ = () => openAdaptiveWorldApp(null, "timetable");
   window.__ST_OPEN_CLOCK_APP__ = () => openClockPage();
   window.__ST_OPEN_MAP_APP__ = () => openAdaptiveWorldApp(null, "map");
   window.__ST_OPEN_CITY_MAP_APP__ = () => openAdaptiveWorldApp(null, "map");
@@ -41601,7 +41802,7 @@ html.st-hypnoos-phone-port #st-operation-float-ball,html.st-hypnoos-phone-port .
     }
     timetableTile.dataset.stTimetableTile = "true";
     if (createdTimetable) setHomeTileIcon(timetableTile, ST_APP_ICONS.timetable, "课程表");
-    bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", openTimetablePage);
+    bindHomeTileAction(timetableTile, "stTimetableTilePatched", "打开课程表", (tile) => openAdaptiveWorldApp(tile, "timetable"));
     let clockTile = dedupeHomeTilesByText("时钟") || parent.querySelector('[data-st-clock-tile="true"]');
     let createdClock = false;
     if (!clockTile) {

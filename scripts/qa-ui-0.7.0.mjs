@@ -23,7 +23,21 @@ async function openPhone(viewport, screenshotPrefix) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'qa-model-small' }, { id: 'qa-model-pro' }] }) });
       return;
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: 'OK' } }] }) });
+    const requestBody = request.method() === 'POST' ? request.postDataJSON() : null;
+    const promptText = JSON.stringify(requestBody?.messages || []);
+    const adapted = {
+      apps: {
+        map: [{ title: 'QA测试地点', summary: '图书馆、车站与校园构成主要活动区域。', meta: '校园区域' }],
+        monitor: [{ title: 'QA车站公共监控', summary: '查看车站入口与公共通道的安全摘要。', meta: '在线' }],
+        calendar: [{ title: 'QA开学日', summary: '举行开学说明与校园参观。', meta: '4月8日' }],
+        timetable: [{ title: '周一第一节 · 语文', summary: 'QA教室的上午课程。', meta: '08:30-09:15' }],
+        rewards: [{ title: '初访图书馆', summary: '完成一次图书馆探索并获得记录奖励。', meta: '任务' }],
+        work: [{ title: '图书管理员助理', summary: '整理图书并协助借阅，按班次结算。', meta: '放学后' }],
+        mchan: [{ title: '校园新学期见闻', summary: '匿名讨论图书馆与车站附近的新鲜事。', meta: '校园区' }],
+      },
+    };
+    const content = promptText.includes('HypnoOS世界书适配器') ? JSON.stringify(adapted) : 'OK';
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content } }] }) });
   });
   await page.addInitScript(() => {
     globalThis.__hypnoosQaLegacyDestroyed = 0;
@@ -210,9 +224,6 @@ async function openPhone(viewport, screenshotPrefix) {
   }
 
   await frame.locator('[aria-label="打开设置"]').click();
-  await frame.locator('[data-settings-region]').selectOption('japan');
-  await frame.getByRole('button', { name: '切换通用模板' }).click();
-  await frame.waitForFunction(() => document.body?.innerText?.includes('通用适配模板已切换为日本版'));
   await frame.getByRole('button', { name: '模型插头' }).click();
   assert.equal(await frame.locator('.st-react-clean-chrome,.st-react-app-island-layer').count(), 0, '设置应用仍叠加旧 React 顶栏');
   const settingsText = await frame.locator('.st-settings-app').innerText();
@@ -246,17 +257,52 @@ async function openPhone(viewport, screenshotPrefix) {
   await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
+  await frame.locator('[aria-label="打开设置"]').click();
+  const regionSelect = frame.locator('[data-settings-region]');
+  assert.ok((await regionSelect.boundingBox()).height <= 40, '通用模板选择框没有缩小');
+  await regionSelect.selectOption('auto');
+  await frame.waitForSelector('[data-settings-worldbook]:not([disabled])');
+  await frame.locator('[data-settings-worldbook]').selectOption('qa-book');
+  await frame.getByRole('button', { name: '生成', exact: true }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('已完成世界书适配：qa-book'));
+  const generatedProfile = await frame.evaluate(() => {
+    const key = Object.keys(localStorage).find((item) => item.startsWith('hypnoos:world-adaptation:v1:'));
+    return key ? JSON.parse(localStorage.getItem(key)) : null;
+  });
+  assert.ok(generatedProfile, '生成完成后没有保存结构化适配包');
+  assert.equal(generatedProfile.schema, 'HypnoWorldAdaptation/v1');
+  assert.equal(generatedProfile.apps.timetable[0].title, '周一第一节 · 语文');
+  await frame.locator('.st-settings-region-panel').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-worldbook-adapter-settings.png`, fullPage: true });
+  await frame.locator('.st-settings-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
   await frame.locator('[aria-label="打开地图"]').click();
   await frame.waitForSelector('.st-adaptive-world-app');
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /当前世界书/);
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /世界书适配 · qa-book/);
   assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /QA测试地点/);
+  assert.doesNotMatch(await frame.locator('.st-adaptive-world-app').innerText(), /QA男性档案|变量更新规则/);
+  await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+  await frame.locator('[aria-label="打开课程表"]').click();
+  await frame.waitForSelector('.st-adaptive-world-app');
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /周一第一节 · 语文/);
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /08:30-09:15/);
   await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
   await frame.locator('[aria-label="打开监控"]').click();
   await frame.waitForSelector('.st-adaptive-world-app');
-  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /日本通用模板/);
+  assert.match(await frame.locator('.st-adaptive-world-app').innerText(), /QA车站公共监控/);
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-adaptive-monitor.png`, fullPage: true });
   await frame.locator('.st-adaptive-world-app [data-lite-action="back"]').click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
+
+  await frame.locator('[aria-label="打开设置"]').click();
+  await frame.getByRole('button', { name: '清空数据' }).click();
+  await frame.getByRole('button', { name: '确认清空' }).click();
+  await frame.waitForFunction(() => document.body?.innerText?.includes('已清空当前聊天的世界书适配数据'));
+  assert.equal(await frame.evaluate(() => Object.keys(localStorage).some((item) => item.startsWith('hypnoos:world-adaptation:v1:'))), false);
+  await frame.locator('.st-settings-app [data-lite-action="back"]').click();
   await frame.waitForFunction(() => document.body?.innerText?.includes('本轮输入'));
 
   await page.screenshot({ path: `docs/screenshots/${screenshotPrefix}-home.png`, fullPage: true });
@@ -293,7 +339,7 @@ async function openPhone(viewport, screenshotPrefix) {
   return { hostMetrics, shellMetrics, panelScroll };
 }
 
-const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.0-desktop');
-const narrow = await openPhone({ width: 760, height: 900 }, '0.7.0-narrow');
+const desktop = await openPhone({ width: 1180, height: 900 }, '0.7.1-desktop');
+const narrow = await openPhone({ width: 760, height: 900 }, '0.7.1-narrow');
 console.log(JSON.stringify({ desktop, narrow }, null, 2));
 await browser.close();

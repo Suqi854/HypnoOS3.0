@@ -17,7 +17,7 @@ for (const path of [manifest.js, manifest.css, 'capability-contract.json']) {
 
 const ui = await readFile(new URL('ui/index.html', root));
 const uiHash = createHash('sha256').update(ui).digest('hex');
-expect(uiHash === 'fc16e0376cdb7f61f80c48c207f57ee2ad98b07f70c31dd7339620c2ebcf14c9', `UI 基线哈希变化：${uiHash}`);
+expect(uiHash === '2d0a0248d111ce6cddf83f2b8794884f4d7f9cabc15078a97472d762b9e3385f', `UI 基线哈希变化：${uiHash}`);
 const uiText = ui.toString('utf8');
 expect(uiText.includes('html,body,#app{width:100%;height:100%;min-height:0;margin:0;overflow:hidden!important;overscroll-behavior:none}#app{contain:strict}'), '手机前端缺少满屏滚动锁');
 expect(uiText.includes('window.__ST_OPEN_PENDING_INPUT_APP__'), '手机前端缺少本轮输入应用入口');
@@ -28,7 +28,8 @@ expect(uiText.includes('window.__ST_OPEN_AVATAR_LIBRARY_APP__'), '手机前端�
 expect(uiText.includes('data-information-action="refresh-format"') && uiText.includes('st-information-feedback'), '信息应用缺少按键反馈');
 expect(uiText.includes('data-profile-gender-correction'), '人物档案缺少手动性别修正选择框');
 expect(uiText.includes('中国版') && uiText.includes('日本版') && uiText.includes('data-settings-region'), '设置缺少中国/日本通用模板选择');
-expect(uiText.includes('readAdaptiveAppData') && uiText.includes('当前世界书'), '世界类应用缺少世界书优先适配层');
+expect(uiText.includes('HypnoWorldAdaptation/v1') && uiText.includes('generateAdaptiveWorldbookProfile') && uiText.includes('data-settings-action="clear-adaptive-data"'), '世界类应用缺少世界书生成适配层');
+expect(uiText.includes('openAdaptiveWorldApp(tile, "timetable")'), '课程表没有接入世界书生成适配层');
 expect(uiText.includes('encounterBuiltInPackagesCache = [];') && uiText.includes('encounterResetLibraryFor070Once'), '邂逅内置角色包没有清空');
 for (const label of ['API 预设', '附加主体参数', '排除主体参数', '附加请求标头']) {
   expect(uiText.includes(label), `文生文连接器缺少预设字段：${label}`);
